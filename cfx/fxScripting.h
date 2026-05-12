@@ -13,3 +13,6 @@
 #include "IScriptFileHandlingRuntime.h"
 #include "IScriptTickRuntimeWithBookmarks.h"
 #include "IScriptHostWithBookmarks.h"
+#include "IScriptStackWalkingRuntime.h"
+#include "IScriptMemInfoRuntime.h"
+#include "IScriptWarningRuntime.h"

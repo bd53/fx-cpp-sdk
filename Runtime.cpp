@@ -185,6 +185,55 @@ result_t OM_DECL Runtime::RemoveRef(int32_t refIdx)
     return FX_S_OK;
 }
 
+result_t OM_DECL Runtime::WalkStack(char* boundaryStart, uint32_t boundaryStartLength, char* boundaryEnd, uint32_t boundaryEndLength, IScriptStackWalkVisitor* visitor)
+{
+    if (!visitor) return FX_S_OK;
+    fx::json::Value frame;
+    frame.kind = fx::json::Value::Kind::Array;
+    frame.children.push_back(fx::json::makeString(m_resourceName));
+    frame.children.push_back(fx::json::makeString("native"));
+    frame.children.push_back(fx::json::makeString(""));
+    frame.children.push_back(fx::json::makeInt(0));
+    auto encoded = fx::msgpack::encode(frame);
+    visitor->SubmitStackFrame(reinterpret_cast<char*>(encoded.data()), static_cast<uint32_t>(encoded.size()));
+    return FX_S_OK;
+}
+
+result_t OM_DECL Runtime::RequestMemoryUsage()
+{
+    return FX_S_OK;
+}
+
+result_t OM_DECL Runtime::GetMemoryUsage(int64_t* memUsage)
+{
+    if (!memUsage) return FX_E_INVALIDARG;
+    *memUsage = 0;
+
+#ifndef _WIN32
+    FILE* f = fopen("/proc/self/statm", "r");
+    if (f)
+    {
+        long size = 0, rss = 0;
+        if (fscanf(f, "%ld %ld", &size, &rss) == 2)
+            *memUsage = static_cast<int64_t>(rss) * 4096;
+        fclose(f);
+    }
+#else
+    *memUsage = 0;
+#endif
+    return FX_S_OK;
+}
+
+result_t OM_DECL Runtime::EmitWarning(char* channel, char* message)
+{
+    if (m_ctx && message)
+    {
+        const char* ch = channel ? channel : "script";
+        m_ctx->trace("[warning:%s] %s\n", ch, message);
+    }
+    return FX_S_OK;
+}
+
 int32_t OM_DECL Runtime::HandlesFile(char* scriptFile, IScriptHostWithResourceData* /*metadata*/)
 {
     if (!scriptFile) return 0;

@@ -41,7 +41,7 @@ public:
     BoundaryGuard& operator=(const BoundaryGuard&) = delete;
 };
 
-class Runtime final : public fx::OMClass<Runtime, IScriptRuntime, IScriptTickRuntime, IScriptEventRuntime, IScriptRefRuntime, IScriptFileHandlingRuntime, IScriptTickRuntimeWithBookmarks>
+class Runtime final : public fx::OMClass<Runtime, IScriptRuntime, IScriptTickRuntime, IScriptEventRuntime, IScriptRefRuntime, IScriptFileHandlingRuntime, IScriptTickRuntimeWithBookmarks, IScriptStackWalkingRuntime, IScriptMemInfoRuntime, IScriptWarningRuntime>
 {
 public:
     Runtime();
@@ -59,6 +59,10 @@ public:
     result_t OM_DECL RemoveRef(int32_t refIdx) override;
     int32_t OM_DECL HandlesFile(char* scriptFile, IScriptHostWithResourceData* metadata) override;
     result_t OM_DECL LoadFile(char* scriptFile) override;
+    result_t OM_DECL WalkStack(char* boundaryStart, uint32_t boundaryStartLength, char* boundaryEnd, uint32_t boundaryEndLength, IScriptStackWalkVisitor* visitor) override;
+    result_t OM_DECL RequestMemoryUsage() override;
+    result_t OM_DECL GetMemoryUsage(int64_t* memUsage) override;
+    result_t OM_DECL EmitWarning(char* channel, char* message) override;
     int32_t AddFuncRef(RefCallback cb);
 
 private:

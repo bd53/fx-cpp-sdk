@@ -65,7 +65,12 @@ inline void ResourceContext::dispatchEvent(const std::string& name, const json::
     if (it == m_eventHandlers.end()) return;
     auto handlers = it->second; // snapshot to guard against handler list mutation during dispatch
     EventArgs ea(args);
-    for (auto& h : handlers) h(source, ea);
+    for (auto& h : handlers)
+    {
+        try { h(source, ea); }
+        catch (const std::exception& e) { trace("Unhandled exception in event '%s': %s\n", name.c_str(), e.what()); }
+        catch (...) { trace("Unhandled non-standard exception in event '%s'\n", name.c_str()); }
+    }
 }
 
 inline void ResourceContext::dispatchCommand(const std::string& command, const std::string& source, const std::vector<std::string>& args)
@@ -73,7 +78,12 @@ inline void ResourceContext::dispatchCommand(const std::string& command, const s
     auto it = m_commandHandlers.find(command);
     if (it == m_commandHandlers.end()) return;
     auto handlers = it->second;
-    for (auto& h : handlers) h(source, args);
+    for (auto& h : handlers)
+    {
+        try { h(source, args); }
+        catch (const std::exception& e) { trace("Unhandled exception in command '%s': %s\n", command.c_str(), e.what()); }
+        catch (...) { trace("Unhandled non-standard exception in command '%s'\n", command.c_str()); }
+    }
 }
 
 }

@@ -5,12 +5,10 @@ SERVER_DIR="${FX_SERVER_DIR:?Set FX_SERVER_DIR to your cfx-server directory}"
 RESOURCE_DIR="${FX_RESOURCE_DIR:?Set FX_RESOURCE_DIR to your resource directory}"
 BUILD_DIR="$(cd "$(cd "$(dirname "$0")/.." && pwd)" && pwd)/build"
 
-if [ ! -f "$BUILD_DIR/Makefile" ]; then
-    mkdir -p "$BUILD_DIR"
-    cmake -B "$BUILD_DIR" -S "$(cd "$(dirname "$0")/.." && pwd)" \
-        -DCMAKE_C_COMPILER="zig;cc;-target;x86_64-linux-musl" \
-        -DCMAKE_CXX_COMPILER="zig;c++;-target;x86_64-linux-musl"
-fi
+mkdir -p "$BUILD_DIR"
+cmake -B "$BUILD_DIR" -S "$(cd "$(dirname "$0")/.." && pwd)" \
+    -DCMAKE_C_COMPILER="zig;cc;-target;x86_64-linux-musl" \
+    -DCMAKE_CXX_COMPILER="zig;c++;-target;x86_64-linux-musl"
 
 make -C "$BUILD_DIR" -j"$(nproc)"
 

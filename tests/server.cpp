@@ -115,6 +115,10 @@ FXCPP_RESOURCE
         }
     });
 
+    fx::onCommand("testerror", [](const std::string&, const std::vector<std::string>&) {
+        throw std::runtime_error("intentional test error");
+    });
+
     fx::createThread([players]() -> fx::ScriptTask {
         while (true)
         {
