@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Natives.h"
+#include "Native/Native.h"
 
 #include <string>
 #include <vector>

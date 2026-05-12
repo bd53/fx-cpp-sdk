@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Types.h"
-#include "msgpack.h"
+#include "Interop/Types.h"
+#include "Interop/MsgPackSerializer.h"
+#include "Interop/MsgPackDeserializer.h"
 #include "../cfx/fxScripting.h"
 
 #include <memory>

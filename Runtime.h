@@ -3,8 +3,9 @@
 #include "cfx/fxScripting.h"
 #include "cfx/core.h"
 #include "resource_sdk/Resource.h"
-#include "resource_sdk/Async.h"
-#include "resource_sdk/msgpack.h"
+#include "resource_sdk/Coroutine/Coroutine.h"
+#include "resource_sdk/Interop/MsgPackSerializer.h"
+#include "resource_sdk/Interop/MsgPackDeserializer.h"
 
 #include <string>
 #include <unordered_map>

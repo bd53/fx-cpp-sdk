@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Resource.h"
+#include "../Resource.h"
 
 #include <coroutine>
 #include <exception>
@@ -56,4 +56,4 @@ inline void createThread(F&& fn)
 
 }
 
-#include "../impl/Async.inl"
+#include "../../impl/Async.inl"

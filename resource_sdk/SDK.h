@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Types.h"
+#include "Interop/Types.h"
 #include "Resource.h"
-#include "Events.h"
+#include "Interop/Events.h"
+#include "Interop/Exports.h"
 #include "Timers.h"
-#include "Exports.h"
-#include "Statebags.h"
+#include "StateBag.h"
 #include "Metadata.h"
-#include "Natives.h"
+#include "Native/Native.h"
 #include "KVP.h"
-#include "Async.h"
+#include "Coroutine/Coroutine.h"
