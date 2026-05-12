@@ -52,9 +52,6 @@ namespace detail
     {
         ctx.arguments[idx] = reinterpret_cast<uintptr_t>(v.c_str());
     }
-    template<typename T>
-    void fillResults(fxNativeContext&) {}
-
 }
 
 template<typename... TArgs>

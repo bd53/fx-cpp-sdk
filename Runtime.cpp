@@ -71,7 +71,7 @@ result_t OM_DECL Runtime::Destroy()
 #ifndef _WIN32
     if (m_libHandle) { dlclose(m_libHandle); m_libHandle = nullptr; }
 #else
-    if (m_libHandle) { FreeLibrary(static_cast<HMODULE>(m_libHandle)); m_libHandle = nullptr }
+    if (m_libHandle) { FreeLibrary(static_cast<HMODULE>(m_libHandle)); m_libHandle = nullptr; }
 #endif
     m_host = nullptr;
     return FX_S_OK;

@@ -6,8 +6,6 @@
 #include "resource_sdk/msgpack.h"
 
 #include <string>
-#include <atomic>
-#include <cstdlib>
 #include <unordered_map>
 #include <functional>
 

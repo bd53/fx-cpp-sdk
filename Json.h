@@ -7,7 +7,6 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <cstdio>
-#include <cmath>
 #include <cstdint>
 
 namespace fx::json

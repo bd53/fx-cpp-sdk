@@ -96,6 +96,13 @@ struct Reader
             v.scalar = str(b & 0x1F);
             return v;
         }
+        if ((b & 0xF0) == 0x80)
+        {
+            v.kind = json::Value::Kind::Object;
+            uint32_t n = b & 0x0F;
+            for (uint32_t i = 0; i < n; ++i) { std::string key = read().scalar; v.fields[key] = read(); }
+            return v;
+        }
         if ((b & 0xF0) == 0x90)
         {
             v.kind = json::Value::Kind::Array;
@@ -147,6 +154,19 @@ struct Reader
             uint32_t n = u32();
             v.kind = json::Value::Kind::Array; v.children.reserve(n);
             for (uint32_t i = 0; i < n; ++i) v.children.push_back(read());
+            return v;
+        }
+
+        case 0xDE: {
+            uint32_t n = u16();
+            v.kind = json::Value::Kind::Object;
+            for (uint32_t i = 0; i < n; ++i) { std::string key = read().scalar; v.fields[key] = read(); }
+            return v;
+        }
+        case 0xDF: {
+            uint32_t n = u32();
+            v.kind = json::Value::Kind::Object;
+            for (uint32_t i = 0; i < n; ++i) { std::string key = read().scalar; v.fields[key] = read(); }
             return v;
         }
 
@@ -290,6 +310,23 @@ inline void writeValue(std::vector<uint8_t>& b, const json::Value& v)
         }
         for (auto& child : v.children)
             writeValue(b, child);
+        break;
+    }
+
+    case json::Value::Kind::Object: {
+        size_t n = v.fields.size();
+        if (n <= 15)
+            b.push_back(static_cast<uint8_t>(0x80 | n));
+        else
+        {
+            b.push_back(0xDE);
+            writeU16(b, static_cast<uint16_t>(n));
+        }
+        for (auto& [key, val] : v.fields)
+        {
+            writeStr(b, key);
+            writeValue(b, val);
+        }
         break;
     }
 

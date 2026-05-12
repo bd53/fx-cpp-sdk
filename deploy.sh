@@ -15,6 +15,6 @@ fi
 make -C "$BUILD_DIR" -j"$(nproc)"
 
 cp "$BUILD_DIR/libcitizen-scripting-cpp.so" "$SERVER_DIR/"
-cp "$BUILD_DIR/example.so" "$RESOURCE_DIR/"
+cp "$BUILD_DIR/server.so" "$RESOURCE_DIR/"
 
 echo "Deployed to $SERVER_DIR and $RESOURCE_DIR"

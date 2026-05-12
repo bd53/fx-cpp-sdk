@@ -13,6 +13,6 @@ target_include_directories(example-runtime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(example-runtime PUBLIC cxx_std_23)
 target_compile_definitions(example-runtime PRIVATE FXCPP_RUNTIME)
 set_target_properties(example-runtime PROPERTIES
-    OUTPUT_NAME "example"
+    OUTPUT_NAME "server"
     PREFIX ""
 )
