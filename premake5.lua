@@ -10,8 +10,8 @@ project "citizen-scripting-cpp"
     targetname "citizen-scripting-cpp"
     targetprefix "lib"
     files {
-        "Runtime.cpp",
-        "Component.cpp",
+        "src/Runtime.cpp",
+        "src/Component.cpp",
     }
     includedirs { "." }
 
