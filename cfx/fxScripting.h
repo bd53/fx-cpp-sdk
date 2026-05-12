@@ -11,3 +11,5 @@
 #include "IScriptEventRuntime.h"
 #include "IScriptRefRuntime.h"
 #include "IScriptFileHandlingRuntime.h"
+#include "IScriptTickRuntimeWithBookmarks.h"
+#include "IScriptHostWithBookmarks.h"

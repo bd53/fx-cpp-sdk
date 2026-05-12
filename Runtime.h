@@ -3,6 +3,7 @@
 #include "cfx/fxScripting.h"
 #include "cfx/core.h"
 #include "resource_sdk/Resource.h"
+#include "resource_sdk/Async.h"
 #include "resource_sdk/msgpack.h"
 
 #include <string>
@@ -39,7 +40,7 @@ public:
     BoundaryGuard& operator=(const BoundaryGuard&) = delete;
 };
 
-class Runtime final : public fx::OMClass<Runtime, IScriptRuntime, IScriptTickRuntime, IScriptEventRuntime, IScriptRefRuntime, IScriptFileHandlingRuntime>
+class Runtime final : public fx::OMClass<Runtime, IScriptRuntime, IScriptTickRuntime, IScriptEventRuntime, IScriptRefRuntime, IScriptFileHandlingRuntime, IScriptTickRuntimeWithBookmarks>
 {
 public:
     Runtime();
@@ -50,6 +51,7 @@ public:
     void OM_DECL SetParentObject(void*) override;
     int32_t OM_DECL GetInstanceId() override { return m_instanceId; }
     result_t OM_DECL Tick() override;
+    result_t OM_DECL TickBookmarks(uint64_t* bookmarks, int32_t numBookmarks) override;
     result_t OM_DECL TriggerEvent(char* eventName, char* argsSerialized, uint32_t serializedSize, char* sourceId) override;
     result_t OM_DECL CallRef(int32_t refIdx, char* argsSerialized, uint32_t argsSize, IScriptBuffer** retval) override;
     result_t OM_DECL DuplicateRef(int32_t refIdx, int32_t* newRefIdx) override;
@@ -60,6 +62,7 @@ public:
 
 private:
     IScriptHost* m_host = nullptr;
+    fx::OMPtr<IScriptHostWithBookmarks> m_bookmarkHost;
     void* m_parentObject = nullptr;
     int32_t m_instanceId = 0;
     void* m_libHandle = nullptr;

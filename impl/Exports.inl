@@ -74,6 +74,8 @@ inline json::Value ResourceContext::callExport(const std::string& resource, cons
     std::string eventName = "__cfx_export_" + resource + "_" + name;
     invokeNative(HashString("TRIGGER_EVENT_INTERNAL"), reinterpret_cast<uintptr_t>(eventName.c_str()), reinterpret_cast<uintptr_t>(setterPayload.data()), setterPayload.size());
 
+    if (m_removeRef) m_removeRef(setterIdx);
+
     if (capturedRef->empty()) return {};
     auto userPayload = msgpack::encodeArgs(args);
     fx::OMPtr<IScriptBuffer> retBuf;

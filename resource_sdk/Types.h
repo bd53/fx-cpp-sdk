@@ -6,10 +6,16 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <coroutine>
 #include <cstdint>
 
 namespace fx
 {
+
+struct Vector3
+{
+    float x = 0.f, y = 0.f, z = 0.f;
+};
 
 class EventArgs
 {
@@ -45,6 +51,11 @@ using RefCallback = std::function<std::vector<char>(const char* argsSerialized, 
 using AddRefFn = std::function<int32_t(RefCallback)>;
 using ExportHandler = std::function<json::Value(EventArgs)>;
 using StopHandler = std::function<void()>;
+using RemoveRefFn = std::function<void(int32_t)>;
+using ScheduleBookmarkFn = std::function<void(uint64_t, int64_t)>;
+
+struct BookmarkPromise;
+using BookmarkHandle = std::coroutine_handle<BookmarkPromise>;
 
 struct TimerEntry
 {

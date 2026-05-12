@@ -60,4 +60,10 @@ inline void emitNet(const std::string& event, int target, const std::vector<std:
         ctx->emitNet(event, target, rawArgs);
 }
 
+inline void cancelEvent()
+{
+    if (auto* ctx = detail::g_ctx)
+        ctx->cancelEvent();
+}
+
 }

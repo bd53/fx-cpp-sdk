@@ -8,3 +8,4 @@
 #include "Statebags.h"
 #include "Metadata.h"
 #include "Natives.h"
+#include "Async.h"

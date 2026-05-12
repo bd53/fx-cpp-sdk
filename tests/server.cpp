@@ -64,9 +64,30 @@ FXCPP_RESOURCE
         fx::trace("----------------------------\n");
     });
 
-    fx::setGlobalState("playerCount", fx::json::makeInt(0));
-    fx::setInterval(30000, [players]() {
-        fx::setGlobalState("playerCount", fx::json::makeInt(static_cast<int>(players->size())));
+    fx::onCommand("statebag", [](const std::string&, const std::vector<std::string>& args) {
+        fx::json::Value count = fx::getGlobalState("playerCount");
+        fx::trace("Global playerCount: %d\n", count.asInt());
+
+        auto keys = fx::getStateBagKeys("global");
+        fx::trace("Global state bag keys (%zu):\n", keys.size());
+        for (const auto& key : keys)
+            fx::trace("  - %s\n", key.c_str());
+
+        if (args.size() > 0)
+        {
+            int id = std::stoi(args[0]);
+            fx::json::Value name = fx::getPlayerState(id, "name");
+            bool hasName = fx::stateBagHasKey("player:" + args[0], "name");
+            fx::trace("Player %d: name=%s (hasKey=%s)\n", id, name.isNull() ? "(null)" : name.asStr().c_str(), hasName ? "true" : "false");
+        }
+    });
+
+    fx::createThread([players]() -> fx::ScriptTask {
+        while (true)
+        {
+            fx::setGlobalState("playerCount", fx::json::makeInt(static_cast<int>(players->size())));
+            co_await fx::Wait(30000);
+        }
     });
 
     fx::addExport("getPlayerCount", [players](fx::EventArgs) -> fx::json::Value {

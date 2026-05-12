@@ -63,15 +63,17 @@ inline void ResourceContext::dispatchEvent(const std::string& name, const json::
     }
     auto it = m_eventHandlers.find(name);
     if (it == m_eventHandlers.end()) return;
+    auto handlers = it->second; // snapshot to guard against handler list mutation during dispatch
     EventArgs ea(args);
-    for (auto& h : it->second) h(source, ea);
+    for (auto& h : handlers) h(source, ea);
 }
 
 inline void ResourceContext::dispatchCommand(const std::string& command, const std::string& source, const std::vector<std::string>& args)
 {
     auto it = m_commandHandlers.find(command);
     if (it == m_commandHandlers.end()) return;
-    for (auto& h : it->second) h(source, args);
+    auto handlers = it->second;
+    for (auto& h : handlers) h(source, args);
 }
 
 }

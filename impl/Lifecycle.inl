@@ -8,12 +8,13 @@ inline void ResourceContext::onStop(StopHandler h)
 
 inline void ResourceContext::dispatchStop()
 {
-    for (auto& h : m_stopHandlers)
+    auto handlers = std::move(m_stopHandlers);
+    m_stopHandlers.clear();
+    for (auto& h : handlers)
     {
         try { h(); }
         catch (...) {}
     }
-    m_stopHandlers.clear();
 }
 
 }

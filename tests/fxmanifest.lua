@@ -3,10 +3,10 @@ game 'gta5'
 
 name 'example'
 author 'bd53'
-description 'Example C++ resource.'
+description 'Test C++ resource.'
 version '1.0.0'
 
 server_scripts {
-    'example.so',
+    'server.so',
     'server.lua',
 }

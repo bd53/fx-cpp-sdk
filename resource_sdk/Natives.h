@@ -52,23 +52,34 @@ namespace detail
     {
         ctx.arguments[idx] = reinterpret_cast<uintptr_t>(v.c_str());
     }
+    template<typename T>
+    inline void pushArg(fxNativeContext& ctx, size_t idx, T* v)
+    {
+        ctx.arguments[idx] = reinterpret_cast<uintptr_t>(v);
+    }
 }
 
 template<typename... TArgs>
-inline uintptr_t invokeRaw(uint64_t hash, TArgs&&... args)
+inline fxNativeContext invokeCtx(uint64_t hash, TArgs&&... args)
 {
     static_assert(sizeof...(args) <= 32, "Native call exceeds 32-argument limit");
     auto* ctx = fx::detail::g_ctx;
-    if (!ctx) return 0;
+    if (!ctx) return {};
     fxNativeContext nctx{};
     nctx.nativeIdentifier = hash;
     size_t idx = 0;
     (detail::pushArg(nctx, idx++, std::forward<TArgs>(args)), ...);
     nctx.numArguments = static_cast<int>(idx);
-    nctx.numResults = 1;
+    nctx.numResults = 3;
     PushEnvironment env(ctx->getRuntime());
     ctx->getHost()->InvokeNative(nctx);
-    return nctx.arguments[0];
+    return nctx;
+}
+
+template<typename... TArgs>
+inline uintptr_t invokeRaw(uint64_t hash, TArgs&&... args)
+{
+    return invokeCtx(hash, std::forward<TArgs>(args)...).arguments[0];
 }
 
 template<typename TResult = void, typename... TArgs>
@@ -87,6 +98,18 @@ inline TResult invoke(uint64_t hash, TArgs&&... args)
     else if constexpr (std::is_same_v<TResult, bool>)
     {
         return invokeRaw(hash, std::forward<TArgs>(args)...) != 0;
+    }
+    else if constexpr (std::is_same_v<TResult, Vector3>)
+    {
+        auto nctx = invokeCtx(hash, std::forward<TArgs>(args)...);
+        Vector3 v;
+        uint32_t bx = static_cast<uint32_t>(nctx.arguments[0]);
+        uint32_t by = static_cast<uint32_t>(nctx.arguments[1]);
+        uint32_t bz = static_cast<uint32_t>(nctx.arguments[2]);
+        memcpy(&v.x, &bx, 4);
+        memcpy(&v.y, &by, 4);
+        memcpy(&v.z, &bz, 4);
+        return v;
     }
     else if constexpr (std::is_floating_point_v<TResult>)
     {

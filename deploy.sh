@@ -16,5 +16,8 @@ make -C "$BUILD_DIR" -j"$(nproc)"
 
 cp "$BUILD_DIR/libcitizen-scripting-cpp.so" "$SERVER_DIR/"
 cp "$BUILD_DIR/server.so" "$RESOURCE_DIR/"
+cp "$(dirname "$0")/tests/fxmanifest.lua" "$RESOURCE_DIR/"
+cp "$(dirname "$0")/tests/server.cpp" "$RESOURCE_DIR/"
+cp "$(dirname "$0")/tests/server.lua" "$RESOURCE_DIR/"
 
 echo "Deployed to $SERVER_DIR and $RESOURCE_DIR"

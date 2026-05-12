@@ -29,4 +29,46 @@ inline void setGlobalState(const std::string& key, const json::Value& value, boo
         ctx->setGlobalState(key, value, replicated);
 }
 
+inline json::Value getStateBagValue(const std::string& bagName, const std::string& key)
+{
+    if (auto* ctx = detail::g_ctx)
+        return ctx->getStateBagValue(bagName, key);
+    return json::makeNull();
+}
+
+inline json::Value getPlayerState(int serverId, const std::string& key)
+{
+    if (auto* ctx = detail::g_ctx)
+        return ctx->getPlayerState(serverId, key);
+    return json::makeNull();
+}
+
+inline json::Value getEntityState(int netId, const std::string& key)
+{
+    if (auto* ctx = detail::g_ctx)
+        return ctx->getEntityState(netId, key);
+    return json::makeNull();
+}
+
+inline json::Value getGlobalState(const std::string& key)
+{
+    if (auto* ctx = detail::g_ctx)
+        return ctx->getGlobalState(key);
+    return json::makeNull();
+}
+
+inline bool stateBagHasKey(const std::string& bagName, const std::string& key)
+{
+    if (auto* ctx = detail::g_ctx)
+        return ctx->stateBagHasKey(bagName, key);
+    return false;
+}
+
+inline std::vector<std::string> getStateBagKeys(const std::string& bagName)
+{
+    if (auto* ctx = detail::g_ctx)
+        return ctx->getStateBagKeys(bagName);
+    return {};
+}
+
 }

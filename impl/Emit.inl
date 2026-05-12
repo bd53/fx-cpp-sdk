@@ -24,4 +24,9 @@ inline void ResourceContext::emitNet(const std::string& event, int target, const
     invokeNative(HashString("TRIGGER_CLIENT_EVENT_INTERNAL"), reinterpret_cast<uintptr_t>(event.c_str()), static_cast<uintptr_t>(target), reinterpret_cast<uintptr_t>(payload.data()), payload.size());
 }
 
+inline void ResourceContext::cancelEvent()
+{
+    invokeNative(HashString("CANCEL_EVENT"));
+}
+
 }

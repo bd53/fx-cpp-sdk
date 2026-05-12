@@ -264,16 +264,22 @@ struct Parser
         }
         else if (c == 't')
         {
+            if (pos + 4 > src.size() || src.substr(pos, 4) != "true")
+                throw std::runtime_error("fx-cpp-sdk::json: unexpected token");
             v.kind = Value::Kind::Bool; v.scalar = "true";
             pos += 4;
         }
         else if (c == 'f')
         {
+            if (pos + 5 > src.size() || src.substr(pos, 5) != "false")
+                throw std::runtime_error("fx-cpp-sdk::json: unexpected token");
             v.kind = Value::Kind::Bool; v.scalar = "false";
             pos += 5;
         }
         else if (c == 'n')
         {
+            if (pos + 4 > src.size() || src.substr(pos, 4) != "null")
+                throw std::runtime_error("fx-cpp-sdk::json: unexpected token");
             v.kind = Value::Kind::Null;
             pos += 4;
         }

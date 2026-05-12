@@ -62,6 +62,7 @@ static OMImplementsDef s_implRuntime{ CLSID_Runtime, IScriptRuntime::GetIID() };
 static OMImplementsDef s_implTick { CLSID_Runtime, IScriptTickRuntime::GetIID() };
 static OMImplementsDef s_implEvent { CLSID_Runtime, IScriptEventRuntime::GetIID() };
 static OMImplementsDef s_implRef { CLSID_Runtime, IScriptRefRuntime::GetIID() };
+static OMImplementsDef s_implBookmarks{ CLSID_Runtime, IScriptTickRuntimeWithBookmarks::GetIID() };
 
 class OMComponent
 {

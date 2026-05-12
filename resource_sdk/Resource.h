@@ -24,7 +24,7 @@ namespace fx
 class ResourceContext
 {
 public:
-    ResourceContext(IScriptHost* host, IScriptRuntime* runtime, std::string name, IScriptRuntimeHandler* handler = nullptr, AddRefFn addRefFn = nullptr) : m_host(host), m_runtime(runtime), m_name(std::move(name)), m_handler(fx::OMPtr<IScriptRuntimeHandler>(handler)), m_addRef(std::move(addRefFn))
+    ResourceContext(IScriptHost* host, IScriptRuntime* runtime, std::string name, IScriptRuntimeHandler* handler = nullptr, AddRefFn addRefFn = nullptr, RemoveRefFn removeRefFn = nullptr, ScheduleBookmarkFn scheduleBookmarkFn = nullptr) : m_host(host), m_runtime(runtime), m_name(std::move(name)), m_handler(fx::OMPtr<IScriptRuntimeHandler>(handler)), m_addRef(std::move(addRefFn)), m_removeRef(std::move(removeRefFn)), m_scheduleBookmark(std::move(scheduleBookmarkFn))
     {
         fx::OMPtr<IScriptHost> h(host);
         h.As(&m_metadataHost);
@@ -40,12 +40,17 @@ public:
     // Lifecycle
     void onStop(StopHandler h);
 
+    // Async / Threads
+    void createThread(BookmarkHandle handle, std::shared_ptr<void> prevent_destruct = {});
+    void resumeBookmarks(uint64_t* bookmarks, int32_t numBookmarks);
+    void cleanupBookmarks();
+
     // Timers
     int32_t setTimeout(uint32_t ms, std::function<void()> cb);
     int32_t setInterval(uint32_t ms, std::function<void()> cb);
     void clearTimer(int32_t id);
 
-    // exports
+    // Exports
     void addExport(const std::string& name, ExportHandler handler);
     json::Value callExport(const std::string& resource, const std::string& name, const std::vector<std::string>& args = {});
 
@@ -53,12 +58,19 @@ public:
     void trace(const char* fmt, ...);
     void emit(const std::string& event, const std::vector<std::string>& rawArgs = {});
     void emitNet(const std::string& event, int target, const std::vector<std::string>& rawArgs = {});
+    void cancelEvent();
 
     // Statebags
     void setStateBagValue(const std::string& bagName, const std::string& key, const json::Value& value, bool replicated = true);
     void setPlayerState(int serverId, const std::string& key, const json::Value& value, bool replicated = true);
     void setEntityState(int netId, const std::string& key, const json::Value& value, bool replicated = true);
     void setGlobalState(const std::string& key, const json::Value& value, bool replicated = true);
+    json::Value getStateBagValue(const std::string& bagName, const std::string& key);
+    json::Value getPlayerState(int serverId, const std::string& key);
+    json::Value getEntityState(int netId, const std::string& key);
+    json::Value getGlobalState(const std::string& key);
+    bool stateBagHasKey(const std::string& bagName, const std::string& key);
+    std::vector<std::string> getStateBagKeys(const std::string& bagName);
 
     // Metadata
     std::string getResourceMetadata(const std::string& key, int index = 0);
@@ -87,11 +99,28 @@ public:
         m_host->InvokeNative(ctx);
     }
 
+    template<typename... Args>
+    fxNativeContext invokeNativeResult(uint64_t hash, Args... args)
+    {
+        static_assert(sizeof...(args) <= 32, "Native call exceeds 32-argument limit");
+        PushEnvironment env(m_handler.GetRef(), m_runtime);
+        fxNativeContext ctx{};
+        ctx.nativeIdentifier = hash;
+        ctx.numResults = 1;
+        size_t idx = 0;
+        ((ctx.arguments[idx++] = static_cast<uintptr_t>(args)), ...);
+        ctx.numArguments = static_cast<int>(idx);
+        m_host->InvokeNative(ctx);
+        return ctx;
+    }
+
 private:
     IScriptHost* m_host = nullptr;
     IScriptRuntime* m_runtime = nullptr;
     fx::OMPtr<IScriptRuntimeHandler> m_handler;
     AddRefFn m_addRef;
+    RemoveRefFn m_removeRef;
+    ScheduleBookmarkFn m_scheduleBookmark;
     fx::OMPtr<IScriptHostWithResourceData> m_metadataHost;
     std::string m_name;
     std::unordered_map<std::string, std::vector<EventHandler>> m_eventHandlers;
@@ -101,6 +130,8 @@ private:
     int32_t m_nextTimerId = 1;
     std::unordered_set<std::string> m_netSafeEvents;
     std::vector<StopHandler> m_stopHandlers;
+    std::unordered_map<uint64_t, std::pair<BookmarkHandle, std::shared_ptr<void>>> m_bookmarks;
+    uint64_t m_nextBookmarkId = 1;
 };
 
 namespace detail { inline ResourceContext* g_ctx = nullptr; }

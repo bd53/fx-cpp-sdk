@@ -4,6 +4,7 @@ namespace fx
 inline int32_t ResourceContext::setTimeout(uint32_t ms, std::function<void()> cb)
 {
     int32_t id = m_nextTimerId++;
+    if (m_nextTimerId <= 0) m_nextTimerId = 1;
     auto fire = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
     m_timers[id] = { id, fire, 0, std::move(cb) };
     return id;
@@ -12,6 +13,7 @@ inline int32_t ResourceContext::setTimeout(uint32_t ms, std::function<void()> cb
 inline int32_t ResourceContext::setInterval(uint32_t ms, std::function<void()> cb)
 {
     int32_t id = m_nextTimerId++;
+    if (m_nextTimerId <= 0) m_nextTimerId = 1;
     auto fire = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
     m_timers[id] = { id, fire, ms, std::move(cb) };
     return id;
@@ -37,13 +39,17 @@ inline void ResourceContext::dispatchTick()
         if (it == m_timers.end()) continue;
         auto cb = it->second.callback;
         if (it->second.intervalMs > 0)
-            it->second.nextFire += std::chrono::milliseconds(it->second.intervalMs);
+        {
+            auto next = it->second.nextFire + std::chrono::milliseconds(it->second.intervalMs);
+            it->second.nextFire = (next > now) ? next : now;
+        }
         else
             m_timers.erase(it);
         cb();
     }
 
-    for (auto& h : m_tickHandlers) h();
+    auto tickHandlers = m_tickHandlers;
+    for (auto& h : tickHandlers) h();
 }
 
 }

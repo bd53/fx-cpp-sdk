@@ -132,6 +132,10 @@ struct Reader
         case 0xC2: v.kind = json::Value::Kind::Bool; v.scalar = "false"; return v;
         case 0xC3: v.kind = json::Value::Kind::Bool; v.scalar = "true"; return v;
 
+        case 0xC4: return readString(u8()); // bin8
+        case 0xC5: return readString(u16()); // bin16
+        case 0xC6: return readString(u32()); // bin32
+
         case 0xCA: {
             uint32_t bits = u32();
             float f; memcpy(&f, &bits, 4);
@@ -215,6 +219,12 @@ inline void writeU32(std::vector<uint8_t>& b, uint32_t v)
     b.push_back(static_cast<uint8_t>(v));
 }
 
+inline void writeU64(std::vector<uint8_t>& b, uint64_t v)
+{
+    writeU32(b, static_cast<uint32_t>(v >> 32));
+    writeU32(b, static_cast<uint32_t>(v));
+}
+
 inline void writeStr(std::vector<uint8_t>& b, const std::string& s)
 {
     size_t n = s.size();
@@ -227,10 +237,15 @@ inline void writeStr(std::vector<uint8_t>& b, const std::string& s)
         b.push_back(0xD9);
         b.push_back(static_cast<uint8_t>(n));
     }
-    else
+    else if (n <= 65535)
     {
         b.push_back(0xDA);
         writeU16(b, static_cast<uint16_t>(n));
+    }
+    else
+    {
+        b.push_back(0xDB);
+        writeU32(b, static_cast<uint32_t>(n));
     }
     b.insert(b.end(), s.begin(), s.end());
 }
@@ -268,9 +283,13 @@ inline void writeValue(std::vector<uint8_t>& b, const json::Value& v)
             {
                 b.push_back(0xD1); writeU16(b, static_cast<uint16_t>(static_cast<int16_t>(ival)));
             }
-            else
+            else if (ival >= -2147483648LL && ival <= 2147483647LL)
             {
                 b.push_back(0xD2); writeU32(b, static_cast<uint32_t>(static_cast<int32_t>(ival)));
+            }
+            else
+            {
+                b.push_back(0xD3); writeU64(b, static_cast<uint64_t>(ival));
             }
         }
         else
@@ -298,10 +317,15 @@ inline void writeValue(std::vector<uint8_t>& b, const json::Value& v)
         size_t n = v.children.size();
         if (n <= 15)
             b.push_back(static_cast<uint8_t>(0x90 | n));
-        else
+        else if (n <= 65535)
         {
             b.push_back(0xDC);
             writeU16(b, static_cast<uint16_t>(n));
+        }
+        else
+        {
+            b.push_back(0xDD);
+            writeU32(b, static_cast<uint32_t>(n));
         }
         for (auto& child : v.children)
             writeValue(b, child);
@@ -312,10 +336,15 @@ inline void writeValue(std::vector<uint8_t>& b, const json::Value& v)
         size_t n = v.fields.size();
         if (n <= 15)
             b.push_back(static_cast<uint8_t>(0x80 | n));
-        else
+        else if (n <= 65535)
         {
             b.push_back(0xDE);
             writeU16(b, static_cast<uint16_t>(n));
+        }
+        else
+        {
+            b.push_back(0xDF);
+            writeU32(b, static_cast<uint32_t>(n));
         }
         for (auto& [key, val] : v.fields)
         {

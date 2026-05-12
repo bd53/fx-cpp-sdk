@@ -57,9 +57,15 @@ result_t OM_DECL Runtime::Create(IScriptHost* host)
 result_t OM_DECL Runtime::Destroy()
 {
     m_refs.clear();
+    if (m_bookmarkHost.GetRef())
+    {
+        m_bookmarkHost->RemoveBookmarks(static_cast<IScriptTickRuntimeWithBookmarks*>(this));
+        m_bookmarkHost = {};
+    }
     if (m_ctx)
     {
         m_ctx->dispatchStop();
+        m_ctx->cleanupBookmarks();
         delete m_ctx;
         m_ctx = nullptr;
     }
@@ -80,6 +86,7 @@ void OM_DECL Runtime::SetParentObject(void* obj)
 result_t OM_DECL Runtime::Tick()
 {
     if (!m_ctx) return FX_S_OK;
+    fx::PushEnvironment env(static_cast<IScriptRuntime*>(this));
     BoundaryGuard boundary(m_host, m_nextBoundaryId++);
     try
     {
@@ -96,9 +103,19 @@ result_t OM_DECL Runtime::Tick()
     return FX_S_OK;
 }
 
+result_t OM_DECL Runtime::TickBookmarks(uint64_t* bookmarks, int32_t numBookmarks)
+{
+    if (!m_ctx || numBookmarks <= 0) return FX_S_OK;
+    fx::PushEnvironment env(static_cast<IScriptRuntime*>(this));
+    BoundaryGuard boundary(m_host, m_nextBoundaryId++);
+    m_ctx->resumeBookmarks(bookmarks, numBookmarks);
+    return FX_S_OK;
+}
+
 result_t OM_DECL Runtime::TriggerEvent(char* eventName, char* argsSerialized, uint32_t serializedSize, char* sourceId)
 {
     if (!m_ctx || !eventName) return FX_S_OK;
+    fx::PushEnvironment env(static_cast<IScriptRuntime*>(this));
     BoundaryGuard boundary(m_host, m_nextBoundaryId++);
     try
     {
@@ -121,6 +138,7 @@ result_t OM_DECL Runtime::TriggerEvent(char* eventName, char* argsSerialized, ui
 int32_t Runtime::AddFuncRef(RefCallback cb)
 {
     int32_t idx = m_nextRefIdx++;
+    if (m_nextRefIdx <= 0) m_nextRefIdx = 1;
     m_refs[idx] = std::move(cb);
     return idx;
 }
@@ -129,6 +147,7 @@ result_t OM_DECL Runtime::CallRef(int32_t refIdx, char* argsSerialized, uint32_t
 {
     auto it = m_refs.find(refIdx);
     if (it == m_refs.end()) return FX_E_INVALIDARG;
+    fx::PushEnvironment env(static_cast<IScriptRuntime*>(this));
     BoundaryGuard boundary(m_host, m_nextBoundaryId++);
     std::vector<char> result;
     try
@@ -188,6 +207,12 @@ result_t OM_DECL Runtime::LoadFile(char* scriptFile)
         fprintf(stderr, "[fx-cpp-sdk] Runtime: could not get resource path for '%s'\n", m_resourceName.c_str());
         return FX_E_INVALIDARG;
     }
+    std::string_view scriptFileView(scriptFile);
+    if (scriptFileView.find("..") != std::string_view::npos)
+    {
+        fprintf(stderr, "[fx-cpp-sdk] Rejected script path with '..': '%s'\n", scriptFile);
+        return FX_E_INVALIDARG;
+    }
 #ifdef _WIN32
     std::string fullPath = root + "\\" + scriptFile;
     m_libHandle = LoadLibraryA(fullPath.c_str());
@@ -214,7 +239,24 @@ result_t OM_DECL Runtime::LoadFile(char* scriptFile)
     }
     fx::OMPtr<IScriptRuntimeHandler> runtimeHandler;
     fx::MakeInterface(&runtimeHandler, CLSID_ScriptRuntimeHandler);
-    m_ctx = new fx::ResourceContext(m_host, this, m_resourceName, runtimeHandler.GetRef(), [this](RefCallback cb) -> int32_t { return AddFuncRef(std::move(cb)); });
+    {
+        fx::OMPtr<IScriptHost> sh(m_host);
+        fx::OMPtr<IScriptHostWithBookmarks> bh;
+        if (FX_SUCCEEDED(sh.As(&bh)) && bh.GetRef())
+        {
+            m_bookmarkHost = bh;
+            m_bookmarkHost->CreateBookmarks(static_cast<IScriptTickRuntimeWithBookmarks*>(this));
+        }
+    }
+    fx::ScheduleBookmarkFn schedBookmark;
+    if (m_bookmarkHost.GetRef())
+    {
+        schedBookmark = [this](uint64_t bm, int64_t deadline) {
+            if (m_bookmarkHost.GetRef())
+                m_bookmarkHost->ScheduleBookmark(static_cast<IScriptTickRuntimeWithBookmarks*>(this), bm, deadline);
+        };
+    }
+    m_ctx = new fx::ResourceContext(m_host, this, m_resourceName, runtimeHandler.GetRef(), [this](RefCallback cb) -> int32_t { return AddFuncRef(std::move(cb)); }, [this](int32_t idx) { m_refs.erase(idx); }, std::move(schedBookmark));
     fprintf(stderr, "[fx-cpp-sdk] Loaded C++ resource '%s'\n", m_resourceName.c_str());
     try
     {
@@ -224,12 +266,35 @@ result_t OM_DECL Runtime::LoadFile(char* scriptFile)
     {
         fprintf(stderr, "[fx-cpp-sdk] Exception during init of '%s': %s\n", m_resourceName.c_str(), e.what());
         m_ctx->trace("Exception during resource init: %s\n", e.what());
+        if (m_bookmarkHost.GetRef())
+        {
+            m_bookmarkHost->RemoveBookmarks(static_cast<IScriptTickRuntimeWithBookmarks*>(this));
+            m_bookmarkHost = {};
+        }
+        m_ctx->cleanupBookmarks();
+        delete m_ctx; m_ctx = nullptr;
+#ifndef _WIN32
+        if (m_libHandle) { dlclose(m_libHandle); m_libHandle = nullptr; }
+#else
+        if (m_libHandle) { FreeLibrary(static_cast<HMODULE>(m_libHandle)); m_libHandle = nullptr; }
+#endif
         return FX_E_INVALIDARG;
     }
     catch (...)
     {
         fprintf(stderr, "[fx-cpp-sdk] Non-standard exception during init of '%s'\n", m_resourceName.c_str());
-        m_ctx->trace("Non-standard exception during resource init\n");
+        if (m_bookmarkHost.GetRef())
+        {
+            m_bookmarkHost->RemoveBookmarks(static_cast<IScriptTickRuntimeWithBookmarks*>(this));
+            m_bookmarkHost = {};
+        }
+        m_ctx->cleanupBookmarks();
+        delete m_ctx; m_ctx = nullptr;
+#ifndef _WIN32
+        if (m_libHandle) { dlclose(m_libHandle); m_libHandle = nullptr; }
+#else
+        if (m_libHandle) { FreeLibrary(static_cast<HMODULE>(m_libHandle)); m_libHandle = nullptr; }
+#endif
         return FX_E_INVALIDARG;
     }
     return FX_S_OK;
