@@ -3,7 +3,7 @@
 #include "Interop/Types.h"
 #include "Interop/MsgPackSerializer.h"
 #include "Interop/MsgPackDeserializer.h"
-#include "../cfx/fxScripting.h"
+#include "../include/fxScripting.h"
 
 #include <memory>
 #include <string>
@@ -150,13 +150,13 @@ inline ResourceContext* GetContext() { return detail::g_ctx; }
 
 }
 
-#include "../impl/Events.inl"
-#include "../impl/Lifecycle.inl"
-#include "../impl/Timers.inl"
-#include "../impl/Exports.inl"
-#include "../impl/Emit.inl"
-#include "../impl/Statebags.inl"
-#include "../impl/Metadata.inl"
+#include "Impl/Events.inl"
+#include "Impl/Lifecycle.inl"
+#include "Impl/Timers.inl"
+#include "Impl/Exports.inl"
+#include "Impl/Emit.inl"
+#include "Impl/Statebags.inl"
+#include "Impl/Metadata.inl"
 
 #define FXCPP_RESOURCE \
     static void _fxcpp_resource_body(fx::ResourceContext&); \

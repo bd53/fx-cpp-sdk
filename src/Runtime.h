@@ -1,11 +1,11 @@
 #pragma once
 
-#include "cfx/fxScripting.h"
-#include "cfx/core.h"
-#include "resource_sdk/Resource.h"
-#include "resource_sdk/Coroutine/Coroutine.h"
-#include "resource_sdk/Interop/MsgPackSerializer.h"
-#include "resource_sdk/Interop/MsgPackDeserializer.h"
+#include "../include/fxScripting.h"
+#include "../include/core.h"
+#include "Resource.h"
+#include "Coroutine/Coroutine.h"
+#include "Interop/MsgPackSerializer.h"
+#include "Interop/MsgPackDeserializer.h"
 
 #include <string>
 #include <unordered_map>

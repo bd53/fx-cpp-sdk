@@ -6,7 +6,7 @@
 #include <vector>
 #include <stdexcept>
 
-#include "../../Json.h"
+#include "../Json.h"
 
 namespace fx::msgpack
 {

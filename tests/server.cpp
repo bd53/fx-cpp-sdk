@@ -1,4 +1,4 @@
-#include <resource_sdk/SDK.h>
+#include <src/SDK.h>
 #include <memory>
 #include <unordered_map>
 
