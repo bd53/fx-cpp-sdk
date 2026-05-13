@@ -44,12 +44,12 @@ template<> inline double EventArgs::get<double>(size_t i) const { return number(
 template<> inline float EventArgs::get<float>(size_t i) const { return static_cast<float>(number(i)); }
 template<> inline bool EventArgs::get<bool>(size_t i) const { return boolean(i); }
 
-using EventHandler = std::function<void(const std::string& source, EventArgs)>;
+using EventHandler = std::function<void(const std::string& source, const EventArgs&)>;
 using TickHandler = std::function<void()>;
 using CommandHandler = std::function<void(const std::string& source, const std::vector<std::string>& args)>;
 using RefCallback = std::function<std::vector<char>(const char* argsSerialized, uint32_t argsSize)>;
 using AddRefFn = std::function<int32_t(RefCallback)>;
-using ExportHandler = std::function<json::Value(EventArgs)>;
+using ExportHandler = std::function<json::Value(const EventArgs&)>;
 using StopHandler = std::function<void()>;
 using RemoveRefFn = std::function<void(int32_t)>;
 using ScheduleBookmarkFn = std::function<void(uint64_t, int64_t)>;

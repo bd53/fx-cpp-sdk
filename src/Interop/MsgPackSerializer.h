@@ -171,10 +171,15 @@ inline void writeValue(std::vector<uint8_t>& b, const json::Value& v)
             b.push_back(0xC7);
             b.push_back(static_cast<uint8_t>(n));
         }
-        else
+        else if (n <= 65535)
         {
             b.push_back(0xC8);
             writeU16(b, static_cast<uint16_t>(n));
+        }
+        else
+        {
+            b.push_back(0xC9);
+            writeU32(b, static_cast<uint32_t>(n));
         }
         b.push_back(10); // function reference ext type
         b.insert(b.end(), v.scalar.begin(), v.scalar.end());

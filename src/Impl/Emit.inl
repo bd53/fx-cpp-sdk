@@ -17,6 +17,14 @@ inline void ResourceContext::trace(const char* fmt, ...)
     fprintf(stderr, "[script:%s] %s", m_name.c_str(), buf.c_str());
 }
 
+inline void ResourceContext::traceStr(const std::string& msg)
+{
+    if (msg.empty()) return;
+    std::string buf(msg);
+    m_host->ScriptTrace(buf.data());
+    fprintf(stderr, "[script:%s] %s", m_name.c_str(), buf.c_str());
+}
+
 inline void ResourceContext::emit(const std::string& event, std::initializer_list<json::Value> args)
 {
     json::Value arr;

@@ -58,12 +58,12 @@ static OMFactoryDef s_factory{
 };
 
 static OMImplementsDef s_implFile { CLSID_Runtime, IScriptFileHandlingRuntime::GetIID() };
-static OMImplementsDef s_implRuntime{ CLSID_Runtime, IScriptRuntime::GetIID() };
+static OMImplementsDef s_implRuntime { CLSID_Runtime, IScriptRuntime::GetIID() };
 static OMImplementsDef s_implTick { CLSID_Runtime, IScriptTickRuntime::GetIID() };
 static OMImplementsDef s_implEvent { CLSID_Runtime, IScriptEventRuntime::GetIID() };
 static OMImplementsDef s_implRef { CLSID_Runtime, IScriptRefRuntime::GetIID() };
-static OMImplementsDef s_implBookmarks{ CLSID_Runtime, IScriptTickRuntimeWithBookmarks::GetIID() };
-static OMImplementsDef s_implStackWalk{ CLSID_Runtime, IScriptStackWalkingRuntime::GetIID() };
+static OMImplementsDef s_implBookmarks { CLSID_Runtime, IScriptTickRuntimeWithBookmarks::GetIID() };
+static OMImplementsDef s_implStackWalk { CLSID_Runtime, IScriptStackWalkingRuntime::GetIID() };
 static OMImplementsDef s_implMemInfo { CLSID_Runtime, IScriptMemInfoRuntime::GetIID() };
 static OMImplementsDef s_implWarning { CLSID_Runtime, IScriptWarningRuntime::GetIID() };
 static OMImplementsDef s_implProfiler { CLSID_Runtime, IScriptProfiler::GetIID() };

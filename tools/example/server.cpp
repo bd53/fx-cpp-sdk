@@ -1,4 +1,8 @@
+#ifdef __wasm__
+#include <src/WASM.h>
+#else
 #include <src/SDK.h>
+#endif
 #include <memory>
 #include <unordered_map>
 

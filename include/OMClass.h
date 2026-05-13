@@ -5,6 +5,7 @@
 #include "OMPtr.h"
 
 #include <atomic>
+#include <cassert>
 #include <type_traits>
 
 namespace fx
@@ -58,14 +59,15 @@ public:
 
     virtual uint32_t OM_DECL Release() override
     {
-        auto c = m_refCount.fetch_sub(1) - 1;
-        if (c == 0)
+        auto prev = m_refCount.fetch_sub(1, std::memory_order_acq_rel);
+        assert(prev > 0 && "Release() called on object with refcount <= 0 (double-free?)");
+        if (prev == 1)
         {
             this->~OMClass();
             fwFree(this);
             return 0;
         }
-        return static_cast<uint32_t>(c);
+        return static_cast<uint32_t>(prev - 1);
     }
 
     fxIBase* GetBaseRef()

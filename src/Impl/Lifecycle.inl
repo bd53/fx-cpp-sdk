@@ -3,6 +3,11 @@ namespace fx
 
 inline void ResourceContext::onStop(StopHandler h)
 {
+    if (m_stopHandlers.size() >= 256)
+    {
+        trace("Stop handler limit reached\n");
+        return;
+    }
     m_stopHandlers.push_back(std::move(h));
 }
 

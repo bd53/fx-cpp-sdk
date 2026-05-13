@@ -1,3 +1,10 @@
+newoption {
+    trigger = "wasm",
+    description = "Build with WebAssembly via wasmtime"
+}
+
+local component = dofile("component.lua")
+
 workspace "citizen-scripting-cpp"
     configurations { "Debug", "Release" }
     architecture "x86_64"
@@ -14,6 +21,8 @@ project "citizen-scripting-cpp"
         "src/Component.cpp",
     }
     includedirs { "." }
+
+    component()
 
     filter "configurations:Debug"
         symbols "On"

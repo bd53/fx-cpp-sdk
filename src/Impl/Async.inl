@@ -9,9 +9,24 @@ inline void ResourceContext::createThread(BookmarkHandle handle, std::shared_ptr
         trace("createThread: bookmark scheduling not available\n");
         return;
     }
+    if (m_bookmarks.size() >= 4096)
+    {
+        handle.destroy();
+        trace("createThread: bookmark limit reached\n");
+        return;
+    }
     uint64_t id = m_nextBookmarkId++;
-    m_bookmarks[id] = {handle, std::move(prevent_destruct)};
-    m_scheduleBookmark(id, 0); // schedule immediately (fires next cycle)
+    try
+    {
+        m_bookmarks[id] = {handle, std::move(prevent_destruct)};
+        m_scheduleBookmark(id, 0); // schedule immediately (fires next cycle)
+    }
+    catch (...)
+    {
+        m_bookmarks.erase(id);
+        handle.destroy();
+        trace("createThread: failed to register bookmark\n");
+    }
 }
 
 inline void ResourceContext::resumeBookmarks(uint64_t* bookmarks, int32_t numBookmarks)

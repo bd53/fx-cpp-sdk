@@ -3,6 +3,8 @@
 #include "core.h"
 #include "IScriptRuntime.h"
 
+#include <mutex>
+
 FX_DEFINE_GUID(IID_IScriptRuntimeHandler, 0x4720A986, 0xEAA6, 0x4ECC, 0xA3, 0x1F, 0x2C, 0xE2, 0xBB, 0xF5, 0x69, 0xF7);
 FX_DEFINE_GUID(CLSID_ScriptRuntimeHandler, 0xC41E7194, 0x7556, 0x4C02, 0xBA, 0x45, 0xA9, 0xC8, 0x4D, 0x18, 0xAD, 0x43);
 
@@ -27,8 +29,8 @@ class PushEnvironment
     static fx::OMPtr<IScriptRuntimeHandler> GetHandler()
     {
         static fx::OMPtr<IScriptRuntimeHandler> h;
-        if (!h.GetRef())
-            fx::MakeInterface(&h, CLSID_ScriptRuntimeHandler);
+        static std::once_flag flag;
+        std::call_once(flag, [] { fx::MakeInterface(&h, CLSID_ScriptRuntimeHandler); });
         return h;
     }
 
@@ -65,8 +67,8 @@ public:
 inline result_t GetCurrentScriptRuntime(fx::OMPtr<IScriptRuntime>* out)
 {
     static fx::OMPtr<IScriptRuntimeHandler> h;
-    if (!h.GetRef())
-        fx::MakeInterface(&h, CLSID_ScriptRuntimeHandler);
+    static std::once_flag flag;
+    std::call_once(flag, [] { fx::MakeInterface(&h, CLSID_ScriptRuntimeHandler); });
     if (!h.GetRef()) return FX_E_NOTIMPL;
     return h->GetCurrentRuntime(out->ReleaseAndGetAddressOf());
 }

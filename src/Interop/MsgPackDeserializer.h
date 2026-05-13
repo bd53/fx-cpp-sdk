@@ -63,26 +63,30 @@ struct Reader
             throw std::runtime_error("msgpack: element count exceeds remaining data");
     }
 
-    json::Value readArray(uint32_t n)
+    static constexpr int MAX_DEPTH = 128;
+
+    json::Value readArray(uint32_t n, int depth)
     {
+        if (depth > MAX_DEPTH) throw std::runtime_error("msgpack: nesting depth exceeds 128");
         validateCount(n);
         json::Value v;
         v.kind = json::Value::Kind::Array;
         v.children.reserve(n);
-        for (uint32_t i = 0; i < n; ++i) v.children.push_back(read());
+        for (uint32_t i = 0; i < n; ++i) v.children.push_back(read(depth + 1));
         return v;
     }
 
-    json::Value readMap(uint32_t n)
+    json::Value readMap(uint32_t n, int depth)
     {
+        if (depth > MAX_DEPTH) throw std::runtime_error("msgpack: nesting depth exceeds 128");
         validateCount(n);
         json::Value v;
         v.kind = json::Value::Kind::Object;
         for (uint32_t i = 0; i < n; ++i)
         {
-            json::Value keyVal = read();
+            json::Value keyVal = read(depth + 1);
             std::string key = keyVal.kind == json::Value::Kind::String ? keyVal.scalar : std::to_string(i);
-            v.fields[key] = read();
+            v.fields[key] = read(depth + 1);
         }
         return v;
     }
@@ -112,7 +116,7 @@ struct Reader
         return v;
     }
 
-    json::Value read()
+    json::Value read(int depth = 0)
     {
         uint8_t b = u8();
         json::Value v;
@@ -130,8 +134,8 @@ struct Reader
             return v;
         }
         if ((b & 0xE0) == 0xA0) return readString(b & 0x1F);
-        if ((b & 0xF0) == 0x80) return readMap(b & 0x0F);
-        if ((b & 0xF0) == 0x90) return readArray(b & 0x0F);
+        if ((b & 0xF0) == 0x80) return readMap(b & 0x0F, depth);
+        if ((b & 0xF0) == 0x90) return readArray(b & 0x0F, depth);
 
         switch (b) {
         case 0xC0: v.kind = json::Value::Kind::Null; return v;
@@ -169,11 +173,11 @@ struct Reader
         case 0xDA: return readString(u16());
         case 0xDB: return readString(u32());
 
-        case 0xDC: return readArray(u16());
-        case 0xDD: return readArray(u32());
+        case 0xDC: return readArray(u16(), depth);
+        case 0xDD: return readArray(u32(), depth);
 
-        case 0xDE: return readMap(u16());
-        case 0xDF: return readMap(u32());
+        case 0xDE: return readMap(u16(), depth);
+        case 0xDF: return readMap(u32(), depth);
 
         case 0xC7: return readExt(u8());
         case 0xC8: return readExt(u16());

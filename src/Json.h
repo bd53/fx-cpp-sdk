@@ -107,6 +107,10 @@ struct Value
     std::unordered_map<std::string, Value> fields;
 
     Value() = default;
+    Value(Value&&) noexcept = default;
+    Value& operator=(Value&&) noexcept = default;
+    Value(const Value&) = default;
+    Value& operator=(const Value&) = default;
     Value(int v) : kind(Kind::Number), scalar(std::to_string(v)) {}
     Value(int64_t v) : kind(Kind::Number), scalar(std::to_string(v)) {}
     Value(double v) : kind(Kind::Number) { char buf[32]; snprintf(buf, sizeof(buf), "%g", v); scalar = buf; }
@@ -212,8 +216,12 @@ struct Parser
         throw std::runtime_error("citizen-scripting-cpp::json: unterminated string");
     }
 
-    Value parseValue()
+    static constexpr int MAX_DEPTH = 128;
+
+    Value parseValue(int depth = 0)
     {
+        if (depth > MAX_DEPTH)
+            throw std::runtime_error("json: nesting depth exceeds 128");
         skipWs();
         Value v;
         char c = peek();
@@ -235,7 +243,7 @@ struct Parser
                 std::string key = parseString();
                 skipWs();
                 expect(':');
-                v.fields[key] = parseValue();
+                v.fields[key] = parseValue(depth + 1);
                 skipWs();
                 char sep = peek();
                 if (sep == ',') { consume(); }
@@ -251,7 +259,7 @@ struct Parser
             if (peek() == ']') { consume(); return v ; }
             while (true)
             {
-                v.children.push_back(parseValue());
+                v.children.push_back(parseValue(depth + 1));
                 skipWs();
                 char sep = peek();
                 if (sep == ',') { consume(); }
@@ -285,17 +293,17 @@ struct Parser
             v.kind = Value::Kind::Number;
             size_t start = pos;
             if (peek() == '-') ++pos;
-            while (pos < src.size() && std::isdigit(src[pos])) ++pos;
+            while (pos < src.size() && std::isdigit(static_cast<unsigned char>(src[pos]))) ++pos;
             if (pos < src.size() && src[pos] == '.')
             {
                 ++pos;
-                while (pos < src.size() && std::isdigit(src[pos])) ++pos;
+                while (pos < src.size() && std::isdigit(static_cast<unsigned char>(src[pos]))) ++pos;
             }
             if (pos < src.size() && (src[pos] == 'e' || src[pos] == 'E'))
             {
                 ++pos;
                 if (pos < src.size() && (src[pos] == '+' || src[pos] == '-')) ++pos;
-                while (pos < src.size() && std::isdigit(src[pos])) ++pos;
+                while (pos < src.size() && std::isdigit(static_cast<unsigned char>(src[pos]))) ++pos;
             }
             v.scalar = std::string(src.substr(start, pos - start));
         }

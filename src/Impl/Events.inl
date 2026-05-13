@@ -3,8 +3,14 @@ namespace fx
 
 inline void ResourceContext::on(const std::string& event, EventHandler h)
 {
-    bool first = m_eventHandlers.find(event) == m_eventHandlers.end();
-    m_eventHandlers[event].push_back(std::move(h));
+    auto& handlers = m_eventHandlers[event];
+    if (handlers.size() >= 1024)
+    {
+        trace("Handler limit reached for event '%s'\n", event.c_str());
+        return;
+    }
+    bool first = handlers.empty();
+    handlers.push_back(std::move(h));
     if (first)
         invokeNative(HashString("REGISTER_RESOURCE_AS_EVENT_HANDLER"), reinterpret_cast<uintptr_t>(event.c_str()));
 }
@@ -17,6 +23,11 @@ inline void ResourceContext::onNet(const std::string& event, EventHandler h)
 
 inline void ResourceContext::onTick(TickHandler h)
 {
+    if (m_tickHandlers.size() >= 256)
+    {
+        trace("Tick handler limit reached\n");
+        return;
+    }
     m_tickHandlers.push_back(std::move(h));
 }
 
@@ -51,7 +62,7 @@ inline void ResourceContext::onCommand(const std::string& command, CommandHandle
 
 inline void ResourceContext::dispatchEvent(const std::string& name, const json::Value& args, const std::string& source)
 {
-    if (source.size() > 4 && source.compare(0, 4, "net:") == 0)
+    if (source.size() >= 4 && source.compare(0, 4, "net:") == 0)
     {
         if (m_netSafeEvents.find(name) == m_netSafeEvents.end())
             return;

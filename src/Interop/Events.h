@@ -42,6 +42,12 @@ inline void trace(const char* fmt, TArgs&&... args)
         ctx->trace(fmt, std::forward<TArgs>(args)...);
 }
 
+inline void traceStr(const std::string& msg)
+{
+    if (auto* ctx = detail::g_ctx)
+        ctx->traceStr(msg);
+}
+
 inline void emit(const std::string& event, std::initializer_list<json::Value> args = {})
 {
     if (auto* ctx = detail::g_ctx)

@@ -3,20 +3,30 @@ namespace fx
 
 inline int32_t ResourceContext::setTimeout(uint32_t ms, std::function<void()> cb)
 {
-    int32_t id = m_nextTimerId++;
-    if (m_nextTimerId <= 0) m_nextTimerId = 1;
+    if (m_timers.size() >= 8192)
+    {
+        trace("Timer limit reached\n");
+        return -1;
+    }
+    uint32_t id = m_nextTimerId;
+    if (++m_nextTimerId == 0) m_nextTimerId = 1;
     auto fire = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
-    m_timers[id] = { id, fire, 0, std::move(cb) };
-    return id;
+    m_timers[static_cast<int32_t>(id)] = { static_cast<int32_t>(id), fire, 0, std::move(cb) };
+    return static_cast<int32_t>(id);
 }
 
 inline int32_t ResourceContext::setInterval(uint32_t ms, std::function<void()> cb)
 {
-    int32_t id = m_nextTimerId++;
-    if (m_nextTimerId <= 0) m_nextTimerId = 1;
+    if (m_timers.size() >= 8192)
+    {
+        trace("Timer limit reached\n");
+        return -1;
+    }
+    uint32_t id = m_nextTimerId;
+    if (++m_nextTimerId == 0) m_nextTimerId = 1;
     auto fire = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
-    m_timers[id] = { id, fire, ms, std::move(cb) };
-    return id;
+    m_timers[static_cast<int32_t>(id)] = { static_cast<int32_t>(id), fire, ms, std::move(cb) };
+    return static_cast<int32_t>(id);
 }
 
 inline void ResourceContext::clearTimer(int32_t id)

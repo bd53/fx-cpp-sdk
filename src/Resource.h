@@ -24,9 +24,8 @@ class ResourceContext
 public:
     ResourceContext(IScriptHost* host, IScriptRuntime* runtime, std::string name, IScriptRuntimeHandler* handler = nullptr, AddRefFn addRefFn = nullptr, RemoveRefFn removeRefFn = nullptr, ScheduleBookmarkFn scheduleBookmarkFn = nullptr) : m_host(host), m_runtime(runtime), m_name(std::move(name)), m_handler(fx::OMPtr<IScriptRuntimeHandler>(handler)), m_addRef(std::move(addRefFn)), m_removeRef(std::move(removeRefFn)), m_scheduleBookmark(std::move(scheduleBookmarkFn))
     {
-        fx::OMPtr<IScriptHost> h(host);
-        h.As(&m_metadataHost);
-        h.As(&m_manifestHost);
+        m_host.As(&m_metadataHost);
+        m_host.As(&m_manifestHost);
     }
 
     // Events
@@ -55,6 +54,7 @@ public:
 
     // Emit
     void trace(const char* fmt, ...);
+    void traceStr(const std::string& msg);
     void emit(const std::string& event, std::initializer_list<json::Value> args = {});
     void emitNet(const std::string& event, int target, std::initializer_list<json::Value> args = {});
     void cancelEvent();
@@ -95,7 +95,7 @@ public:
     void dispatchCommand(const std::string& command, const std::string& source, const std::vector<std::string>& args);
     void dispatchStop();
 
-    IScriptHost* getHost() { return m_host; }
+    IScriptHost* getHost() { return m_host.GetRef(); }
     IScriptRuntime* getRuntime() { return m_runtime; }
     IScriptRuntimeHandler* getRuntimeHandler() { return m_handler.GetRef(); }
     IScriptHostWithResourceData* getMetadataHost() { return m_metadataHost.GetRef(); }
@@ -137,8 +137,8 @@ public:
     }
 
 private:
-    IScriptHost* m_host = nullptr;
-    IScriptRuntime* m_runtime = nullptr;
+    fx::OMPtr<IScriptHost> m_host;
+    IScriptRuntime* m_runtime = nullptr; // rt outlives ResourceContext (prvents circular ref)
     fx::OMPtr<IScriptRuntimeHandler> m_handler;
     AddRefFn m_addRef;
     RemoveRefFn m_removeRef;
@@ -150,7 +150,7 @@ private:
     std::unordered_map<std::string, std::vector<CommandHandler>> m_commandHandlers;
     std::vector<TickHandler> m_tickHandlers;
     std::unordered_map<int32_t, TimerEntry> m_timers;
-    int32_t m_nextTimerId = 1;
+    uint32_t m_nextTimerId = 1;
     std::unordered_set<std::string> m_netSafeEvents;
     std::vector<StopHandler> m_stopHandlers;
     std::unordered_map<uint64_t, std::pair<BookmarkHandle, std::shared_ptr<void>>> m_bookmarks;
