@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace fxw_internal
 {
@@ -22,6 +23,7 @@ struct Context
     std::vector<fx::StopHandler> stops;
     std::unordered_map<std::string, std::vector<fx::EventHandler>> events;
     std::unordered_map<std::string, std::vector<fx::CommandHandler>> commands;
+    std::unordered_set<std::string> netSafeEvents;
     std::unordered_map<int32_t, TimerEntry> timers;
     int32_t nextTimerId = 1;
 
@@ -57,10 +59,16 @@ struct Context
         auto it = events.find(key);
         if (it == events.end()) return;
 
+        std::string srcStr(src, srcLen);
+        if (srcStr.size() >= 4 && srcStr.compare(0, 4, "net:") == 0)
+        {
+            if (netSafeEvents.find(key) == netSafeEvents.end())
+                return;
+        }
+
         Value decoded = decode(args, argsLen);
         ensureArray(decoded);
         fx::EventArgs ea(std::move(decoded));
-        std::string srcStr(src, srcLen);
         for (auto& h : it->second) h(srcStr, ea);
     }
 };

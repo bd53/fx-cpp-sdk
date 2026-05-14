@@ -27,6 +27,8 @@ inline void on(const std::string& event, EventHandler h)
 
 inline void onNet(const std::string& event, EventHandler h)
 {
+    if (auto* c = fxw_internal::currentContext())
+        c->netSafeEvents.insert(event);
     on(event, std::move(h));
 }
 

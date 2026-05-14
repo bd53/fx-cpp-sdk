@@ -126,6 +126,22 @@ static bool inBounds(size_t memSz, uint32_t offset, size_t len)
     return static_cast<size_t>(offset) + len <= memSz;
 }
 
+static bool wasmCall(wasmtime_store_t* store, const wasmtime_func_t& fn, const wasmtime_val_t* args, size_t nargs, wasmtime_val_t* results, size_t nresults, const char* resourceName, const char* label)
+{
+    wasm_trap_t* trap = nullptr;
+    auto* err = wasmtime_func_call(wasmtime_store_context(store), &fn, args, nargs, results, nresults, &trap);
+    if (err || trap)
+    {
+        wasm_name_t msg{};
+        if (err) { wasmtime_error_message(err, &msg); wasmtime_error_delete(err); }
+        else { wasm_trap_message(trap, &msg); wasm_trap_delete(trap); }
+        fprintf(stderr, "[%s/wasm] %s: %.*s\n", resourceName, label, static_cast<int>(msg.size), msg.data);
+        wasm_byte_vec_delete(&msg);
+        return false;
+    }
+    return true;
+}
+
 static wasm_trap_t* cb_trace(void* env, wasmtime_caller_t* caller, const wasmtime_val_t* args, size_t, wasmtime_val_t*, size_t)
 {
     auto* rt = static_cast<Runtime*>(env);
@@ -686,9 +702,8 @@ uint32_t Runtime::wasmAlloc(uint32_t size)
     if (!m_hasAllocFn || !m_store) return 0;
     wasmtime_val_t arg = i32val(static_cast<int32_t>(size));
     wasmtime_val_t result{};
-    wasm_trap_t* trap = nullptr;
-    auto* err = wasmtime_func_call(wasmtime_store_context(m_store), &m_fnAlloc, &arg, 1, &result, 1, &trap);
-    if (err || trap) { wasmErrMsg(err, trap); return 0; }
+    if (!wasmCall(m_store, m_fnAlloc, &arg, 1, &result, 1, m_resourceName.c_str(), "alloc trap"))
+        return 0;
     return static_cast<uint32_t>(result.of.i32);
 }
 
@@ -696,22 +711,13 @@ void Runtime::wasmFree(uint32_t ptr, uint32_t size)
 {
     if (!m_hasFreeFn || !m_store) return;
     wasmtime_val_t args[2] = { i32val(static_cast<int32_t>(ptr)), i32val(static_cast<int32_t>(size)) };
-    wasm_trap_t* trap = nullptr;
-    auto* err = wasmtime_func_call(wasmtime_store_context(m_store), &m_fnFree, args, 2, nullptr, 0, &trap);
-    if (err || trap) wasmErrMsg(err, trap);
+    wasmCall(m_store, m_fnFree, args, 2, nullptr, 0, m_resourceName.c_str(), "free trap");
 }
 
 bool Runtime::callVoid(const wasmtime_func_t& fn)
 {
     if (!m_store) return false;
-    wasm_trap_t* trap = nullptr;
-    auto* err = wasmtime_func_call(wasmtime_store_context(m_store), &fn, nullptr, 0, nullptr, 0, &trap);
-    if (err || trap)
-    {
-        fprintf(stderr, "[%s/wasm] trap: %s\n", m_resourceName.c_str(), wasmErrMsg(err, trap).c_str());
-        return false;
-    }
-    return true;
+    return wasmCall(m_store, fn, nullptr, 0, nullptr, 0, m_resourceName.c_str(), "trap");
 }
 
 bool Runtime::callEvent(uint32_t namePtr, uint32_t nameLen, uint32_t argsPtr, uint32_t argsLen, uint32_t srcPtr, uint32_t srcLen)
@@ -722,29 +728,23 @@ bool Runtime::callEvent(uint32_t namePtr, uint32_t nameLen, uint32_t argsPtr, ui
         i32val(static_cast<int32_t>(argsPtr)), i32val(static_cast<int32_t>(argsLen)),
         i32val(static_cast<int32_t>(srcPtr)), i32val(static_cast<int32_t>(srcLen)),
     };
-    wasm_trap_t* trap = nullptr;
-    auto* err = wasmtime_func_call(wasmtime_store_context(m_store), &m_fnEvent, a, 6, nullptr, 0, &trap);
-    if (err || trap)
-    {
-        fprintf(stderr, "[%s/wasm] event trap: %s\n", m_resourceName.c_str(), wasmErrMsg(err, trap).c_str());
-        return false;
-    }
-    return true;
+    return wasmCall(m_store, m_fnEvent, a, 6, nullptr, 0, m_resourceName.c_str(), "event trap");
 }
 
 bool Runtime::callInvokeRef(uint32_t callbackId, const char* argsSerialized, uint32_t argsSize, std::vector<char>& result)
 {
     if (!m_hasInvokeRefFn || !m_store || !m_hasAllocFn) return false;
-    uint32_t argsPtr = wasmAlloc(argsSize > 0 ? argsSize : 1);
+    uint32_t argsAllocSz = argsSize > 0 ? argsSize : 1;
+    uint32_t argsPtr = wasmAlloc(argsAllocSz);
     if (!argsPtr) return false;
     uint8_t* base = wasmBase();
     size_t memSz = wasmMemSize();
-    if (!inBounds(memSz, argsPtr, argsSize)) { wasmFree(argsPtr, argsSize > 0 ? argsSize : 1); return false; }
+    if (!inBounds(memSz, argsPtr, argsSize)) { wasmFree(argsPtr, argsAllocSz); return false; }
     if (argsSize > 0)
         memcpy(base + argsPtr, argsSerialized, argsSize);
     constexpr uint32_t resultBufMax = 4096;
     uint32_t resultPtr = wasmAlloc(resultBufMax);
-    if (!resultPtr) { wasmFree(argsPtr, argsSize > 0 ? argsSize : 1); return false; }
+    if (!resultPtr) { wasmFree(argsPtr, argsAllocSz); return false; }
     wasmtime_val_t a[5] = {
         i32val(static_cast<int32_t>(callbackId)),
         i32val(static_cast<int32_t>(argsPtr)),
@@ -753,32 +753,51 @@ bool Runtime::callInvokeRef(uint32_t callbackId, const char* argsSerialized, uin
         i32val(static_cast<int32_t>(resultBufMax)),
     };
     wasmtime_val_t ret{};
-    wasm_trap_t* trap = nullptr;
-    auto* err = wasmtime_func_call(wasmtime_store_context(m_store), &m_fnInvokeRef, a, 5, &ret, 1, &trap);
-    wasmFree(argsPtr, argsSize > 0 ? argsSize : 1);
-    if (err || trap)
+    if (!wasmCall(m_store, m_fnInvokeRef, a, 5, &ret, 1, m_resourceName.c_str(), "invoke_ref trap"))
     {
-        fprintf(stderr, "[%s/wasm] invoke_ref trap: %s\n", m_resourceName.c_str(), wasmErrMsg(err, trap).c_str());
+        wasmFree(argsPtr, argsAllocSz);
         wasmFree(resultPtr, resultBufMax);
         return false;
     }
+    wasmFree(argsPtr, argsAllocSz);
     int32_t actualLen = ret.of.i32;
     if (actualLen > 0)
     {
+        uint32_t copyLen = static_cast<uint32_t>(actualLen);
+        if (copyLen > resultBufMax)
+        {
+            wasmFree(resultPtr, resultBufMax);
+            resultPtr = wasmAlloc(copyLen);
+            if (!resultPtr) { result = { static_cast<char>(0x90) }; return true; }
+            wasmtime_val_t a2[5] = {
+                i32val(static_cast<int32_t>(callbackId)),
+                i32val(0), i32val(0),
+                i32val(static_cast<int32_t>(resultPtr)),
+                i32val(static_cast<int32_t>(copyLen)),
+            };
+            wasmtime_val_t ret2{};
+            if (!wasmCall(m_store, m_fnInvokeRef, a2, 5, &ret2, 1, m_resourceName.c_str(), "invoke_ref retry"))
+            {
+                wasmFree(resultPtr, copyLen);
+                result = { static_cast<char>(0x90) };
+                return true;
+            }
+            copyLen = std::min(copyLen, static_cast<uint32_t>(ret2.of.i32));
+        }
         base = wasmBase();
         memSz = wasmMemSize();
-        size_t copyLen = std::min<size_t>(static_cast<size_t>(actualLen), resultBufMax);
         if (inBounds(memSz, resultPtr, copyLen))
         {
             result.resize(copyLen);
             memcpy(result.data(), base + resultPtr, copyLen);
         }
+        wasmFree(resultPtr, copyLen > resultBufMax ? copyLen : resultBufMax);
     }
     else
     {
+        wasmFree(resultPtr, resultBufMax);
         result = { static_cast<char>(0x90) };
     }
-    wasmFree(resultPtr, resultBufMax);
     return true;
 }
 
@@ -792,20 +811,14 @@ void Runtime::wasmDuplicateRef(int32_t callbackId)
     if (!m_hasDuplicateRefFn || !m_store) return;
     wasmtime_val_t a[1] = { i32val(callbackId) };
     wasmtime_val_t ret{};
-    wasm_trap_t* trap = nullptr;
-    auto* err = wasmtime_func_call(wasmtime_store_context(m_store), &m_fnDuplicateRef, a, 1, &ret, 1, &trap);
-    if (err || trap)
-        fprintf(stderr, "[%s/wasm] duplicate_ref trap: %s\n", m_resourceName.c_str(), wasmErrMsg(err, trap).c_str());
+    wasmCall(m_store, m_fnDuplicateRef, a, 1, &ret, 1, m_resourceName.c_str(), "duplicate_ref trap");
 }
 
 void Runtime::wasmRemoveRef(int32_t callbackId)
 {
     if (!m_hasRemoveRefFn || !m_store) return;
     wasmtime_val_t a[1] = { i32val(callbackId) };
-    wasm_trap_t* trap = nullptr;
-    auto* err = wasmtime_func_call(wasmtime_store_context(m_store), &m_fnRemoveRef, a, 1, nullptr, 0, &trap);
-    if (err || trap)
-        fprintf(stderr, "[%s/wasm] remove_ref trap: %s\n", m_resourceName.c_str(), wasmErrMsg(err, trap).c_str());
+    wasmCall(m_store, m_fnRemoveRef, a, 1, nullptr, 0, m_resourceName.c_str(), "remove_ref trap");
 }
 
 void Runtime::defineImports()
@@ -815,13 +828,7 @@ void Runtime::defineImports()
         auto* err = wasmtime_linker_define_func(m_linker, "fxcpp", 5, name, strlen(name), ft, cb, this, nullptr);
         wasm_functype_delete(ft);
         if (err)
-        {
-            wasm_name_t msg{};
-            wasmtime_error_message(err, &msg);
-            fprintf(stderr, "[wasm] failed to define import '%s': %.*s\n", name, static_cast<int>(msg.size), msg.data);
-            wasm_byte_vec_delete(&msg);
-            wasmtime_error_delete(err);
-        }
+            fprintf(stderr, "[wasm] failed to define import '%s': %s\n", name, wasmErrMsg(err, nullptr).c_str());
     };
     def("trace", makeFuncType({WASM_I32, WASM_I32}, {}), cb_trace);
     def("invoke_native", makeFuncType({WASM_I32}, {}), cb_invoke_native);
@@ -859,13 +866,8 @@ bool Runtime::resolveExports()
             fprintf(stderr, "[citizen-scripting-cpp/wasm] '%s' missing fxcpp_init export\n", m_resourceName.c_str());
             return false;
         }
-        wasm_trap_t* trap = nullptr;
-        auto* err = wasmtime_func_call(ctx, &initFn, nullptr, 0, nullptr, 0, &trap);
-        if (err || trap)
-        {
-            fprintf(stderr, "[citizen-scripting-cpp/wasm] fxcpp_init trap in '%s': %s\n", m_resourceName.c_str(), wasmErrMsg(err, trap).c_str());
+        if (!wasmCall(m_store, initFn, nullptr, 0, nullptr, 0, m_resourceName.c_str(), "fxcpp_init trap"))
             return false;
-        }
     }
     m_hasTickFn = get("fxcpp_tick", m_fnTick);
     m_hasEventFn = get("fxcpp_on_event", m_fnEvent);
@@ -1047,34 +1049,30 @@ result_t OM_DECL Runtime::TriggerEvent(char* eventName, char* argsSerialized, ui
         m_eventCanceled = false;
         std::string_view name(eventName);
         std::string_view src(sourceId ? sourceId : "-1");
-        uint32_t nameWasm = wasmAlloc(static_cast<uint32_t>(name.size()) + 1);
-        uint32_t argsWasm = wasmAlloc(serializedSize);
-        uint32_t srcWasm = wasmAlloc(static_cast<uint32_t>(src.size()) + 1);
-        if (!nameWasm || !argsWasm || !srcWasm)
-        {
-            if (nameWasm) wasmFree(nameWasm, static_cast<uint32_t>(name.size()) + 1);
-            if (argsWasm) wasmFree(argsWasm, serializedSize);
-            if (srcWasm) wasmFree(srcWasm, static_cast<uint32_t>(src.size()) + 1);
-            return FX_S_OK;
-        }
+        uint32_t nameAllocSz = static_cast<uint32_t>(name.size()) + 1;
+        uint32_t argsAllocSz = serializedSize > 0 ? serializedSize : 1;
+        uint32_t srcAllocSz = static_cast<uint32_t>(src.size()) + 1;
+        uint32_t totalSz = nameAllocSz + argsAllocSz + srcAllocSz;
+        uint32_t block = wasmAlloc(totalSz);
+        if (!block) return FX_S_OK;
+        uint32_t nameWasm = block;
+        uint32_t argsWasm = block + nameAllocSz;
+        uint32_t srcWasm = block + nameAllocSz + argsAllocSz;
         uint8_t* base = wasmBase();
         size_t memSz = wasmMemSize();
-        if (!inBounds(memSz, nameWasm, name.size() + 1) || !inBounds(memSz, argsWasm, serializedSize) || !inBounds(memSz, srcWasm, src.size() + 1))
+        if (!inBounds(memSz, block, totalSz))
         {
-            wasmFree(nameWasm, static_cast<uint32_t>(name.size()) + 1);
-            wasmFree(argsWasm, serializedSize);
-            wasmFree(srcWasm, static_cast<uint32_t>(src.size()) + 1);
+            wasmFree(block, totalSz);
             return FX_S_OK;
         }
         memcpy(base + nameWasm, name.data(), name.size());
         base[nameWasm + name.size()] = '\0';
-        memcpy(base + argsWasm, argsSerialized, serializedSize);
+        if (serializedSize > 0)
+            memcpy(base + argsWasm, argsSerialized, serializedSize);
         memcpy(base + srcWasm, src.data(), src.size());
         base[srcWasm + src.size()] = '\0';
         callEvent(nameWasm, static_cast<uint32_t>(name.size()), argsWasm, serializedSize, srcWasm, static_cast<uint32_t>(src.size()));
-        wasmFree(nameWasm, static_cast<uint32_t>(name.size()) + 1);
-        wasmFree(argsWasm, serializedSize);
-        wasmFree(srcWasm, static_cast<uint32_t>(src.size()) + 1);
+        wasmFree(block, totalSz);
     }
 #endif
     return FX_S_OK;
@@ -1199,7 +1197,12 @@ result_t OM_DECL Runtime::RequestMemoryUsage()
 result_t OM_DECL Runtime::GetMemoryUsage(int64_t* memUsage)
 {
     if (!memUsage) return FX_E_INVALIDARG;
-    *memUsage = 0;
+#ifdef FXCPP_WASM_SUPPORT
+    if (m_mode == Mode::Wasm)
+        *memUsage = static_cast<int64_t>(wasmMemSize());
+    else
+#endif
+        *memUsage = 0;
     return FX_S_OK;
 }
 

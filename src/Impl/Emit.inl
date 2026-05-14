@@ -25,21 +25,23 @@ inline void ResourceContext::traceStr(const std::string& msg)
     fprintf(stderr, "[script:%s] %s", m_name.c_str(), buf.c_str());
 }
 
-inline void ResourceContext::emit(const std::string& event, std::initializer_list<json::Value> args)
+inline std::vector<uint8_t> ResourceContext::encodeArgs(std::initializer_list<json::Value> args)
 {
     json::Value arr;
     arr.kind = json::Value::Kind::Array;
     arr.children.assign(args.begin(), args.end());
-    auto payload = msgpack::encode(arr);
+    return msgpack::encode(arr);
+}
+
+inline void ResourceContext::emit(const std::string& event, std::initializer_list<json::Value> args)
+{
+    auto payload = encodeArgs(args);
     invokeNative(HashString("TRIGGER_EVENT_INTERNAL"), reinterpret_cast<uintptr_t>(event.c_str()), reinterpret_cast<uintptr_t>(payload.data()), payload.size());
 }
 
 inline void ResourceContext::emitNet(const std::string& event, int target, std::initializer_list<json::Value> args)
 {
-    json::Value arr;
-    arr.kind = json::Value::Kind::Array;
-    arr.children.assign(args.begin(), args.end());
-    auto payload = msgpack::encode(arr);
+    auto payload = encodeArgs(args);
     std::string targetStr = std::to_string(target);
     invokeNative(HashString("TRIGGER_CLIENT_EVENT_INTERNAL"), reinterpret_cast<uintptr_t>(event.c_str()), reinterpret_cast<uintptr_t>(targetStr.c_str()), reinterpret_cast<uintptr_t>(payload.data()), payload.size());
 }

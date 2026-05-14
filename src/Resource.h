@@ -55,6 +55,7 @@ public:
     // Emit
     void trace(const char* fmt, ...);
     void traceStr(const std::string& msg);
+    std::vector<uint8_t> encodeArgs(std::initializer_list<json::Value> args);
     void emit(const std::string& event, std::initializer_list<json::Value> args = {});
     void emitNet(const std::string& event, int target, std::initializer_list<json::Value> args = {});
     void cancelEvent();
