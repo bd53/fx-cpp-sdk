@@ -32,6 +32,20 @@ static std::string GetResourcePath(IScriptHost* host)
     return path ? std::string(path) : std::string{};
 }
 
+static std::string GetConvar(IScriptHost* host, const char* name, const char* defaultValue)
+{
+    fxNativeContext ctx{};
+    ctx.nativeIdentifier = HashString("GET_CONVAR");
+    ctx.arguments[0] = reinterpret_cast<uintptr_t>(name);
+    ctx.arguments[1] = reinterpret_cast<uintptr_t>(defaultValue);
+    ctx.numArguments = 2;
+    ctx.numResults = 1;
+    if (FX_FAILED(host->InvokeNative(ctx)))
+        return defaultValue;
+    const char* result = reinterpret_cast<const char*>(ctx.arguments[0]);
+    return result ? std::string(result) : std::string(defaultValue);
+}
+
 static bool ValidateScriptPath(const char* scriptFile, const std::string& root, std::string& resolvedPath, std::string& resolvedRoot, const char* resourceName)
 {
     std::string_view scriptFileView(scriptFile);
@@ -1188,6 +1202,17 @@ result_t OM_DECL Runtime::LoadFile(char* scriptFile)
     if (file.ends_with(".wasm"))
         return loadWasm(resolvedPath);
 #endif
+
+    std::string allowed = GetConvar(m_host.GetRef(), "sv_allowNativeCode", "false");
+    if (allowed != "true" && allowed != "1")
+    {
+        fprintf(stderr, "[citizen-scripting-cpp] Blocked native .so resource '%s'. "
+            "Native code runs unsandboxed with full host access. "
+            "To allow, add 'sv_allowNativeCode true' to your server.cfg. "
+            "Consider using .wasm for sandboxed execution.\n", m_resourceName.c_str());
+        return FX_E_INVALIDARG;
+    }
+
     return loadSharedLib(resolvedPath);
 }
 
