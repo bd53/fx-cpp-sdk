@@ -39,16 +39,11 @@ make -C "$BUILD_DIR" config=release \
 
 if [[ "$BUILD_TYPE" == "wasm" ]]; then
     echo "Compiling example resource to WASM..."
-    EXPORT_FLAGS=("-Wl,--export-memory")
-    for exp in fxcpp_init fxcpp_tick fxcpp_on_event fxcpp_on_stop fxcpp_alloc fxcpp_free fxcpp_invoke_ref; do
-        EXPORT_FLAGS+=("-Wl,--export=$exp")
-    done
-
     clang++ --target=wasm32-wasip1 -O2 -std=c++23 \
         --sysroot=/usr/share/wasi-sysroot \
         -fno-exceptions \
         -I"$PROJECT_DIR" \
-        "${EXPORT_FLAGS[@]}" \
+        -Wl,--export-memory \
         "$PROJECT_DIR/tools/example/server.cpp" \
         -o "$BUILD_DIR/bin/Release/server.wasm"
 fi

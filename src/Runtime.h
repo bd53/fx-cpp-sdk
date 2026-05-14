@@ -136,6 +136,7 @@ private:
     wasmtime_func_t m_fnInvokeRef{};
     wasmtime_func_t m_fnDuplicateRef{};
     wasmtime_func_t m_fnRemoveRef{};
+    wasmtime_func_t m_fnHasPendingWork{};
     bool m_hasTickFn = false;
     bool m_hasEventFn = false;
     bool m_hasStopFn = false;
@@ -144,6 +145,7 @@ private:
     bool m_hasInvokeRefFn = false;
     bool m_hasDuplicateRefFn = false;
     bool m_hasRemoveRefFn = false;
+    bool m_hasHasPendingWorkFn = false;
     std::unordered_map<int32_t, int32_t> m_refToCallbackId;
     bool m_eventCanceled = false;
     fxNativeContext m_lastNativeCtx{};

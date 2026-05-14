@@ -877,6 +877,7 @@ bool Runtime::resolveExports()
     m_hasInvokeRefFn = get("fxcpp_invoke_ref", m_fnInvokeRef);
     m_hasDuplicateRefFn = get("fxcpp_duplicate_ref", m_fnDuplicateRef);
     m_hasRemoveRefFn = get("fxcpp_remove_ref", m_fnRemoveRef);
+    m_hasHasPendingWorkFn = get("fxcpp_has_pending_work", m_fnHasPendingWork);
     wasmtime_extern_t memExt{};
     if (wasmtime_instance_export_get(ctx, &m_instance, "memory", 6, &memExt) &&
         memExt.kind == WASMTIME_EXTERN_MEMORY)
@@ -996,6 +997,12 @@ result_t OM_DECL Runtime::Tick()
     else if (m_mode == Mode::Wasm)
     {
         if (!m_hasTickFn) return FX_S_OK;
+        if (m_hasHasPendingWorkFn)
+        {
+            wasmtime_val_t ret{};
+            if (wasmCall(m_store, m_fnHasPendingWork, nullptr, 0, &ret, 1, m_resourceName.c_str(), "has_pending_work trap") && ret.of.i32 == 0)
+                return FX_S_OK;
+        }
         fx::PushEnvironment env(static_cast<IScriptRuntime*>(this));
         BoundaryGuard boundary(m_host.GetRef(), static_cast<int64_t>(nextBoundaryId()));
         callVoid(m_fnTick);
@@ -1211,10 +1218,14 @@ result_t OM_DECL Runtime::EmitWarning(char* channel, char* message)
     if (message)
     {
         const char* ch = channel ? channel : "script";
-        if (m_mode == Mode::SharedLib && m_ctx)
-            m_ctx->trace("[warning:%s] %s\n", ch, message);
-        else
-            fprintf(stderr, "[%s][warning:%s] %s\n", m_resourceName.c_str(), ch, message);
+        char buf[1024];
+        int n = snprintf(buf, sizeof(buf), "[warning:%s] %s\n", ch, message);
+        if (n > 0)
+        {
+            if (m_host.GetRef())
+                m_host->ScriptTrace(buf);
+            fprintf(stderr, "[script:%s] %s", m_resourceName.c_str(), buf);
+        }
     }
     return FX_S_OK;
 }
