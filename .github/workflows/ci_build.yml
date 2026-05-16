@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format g++-14 clang lld wasi-libc python3 musl-tools
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+
+      - name: Install premake5
+        run: |
+          curl -fsSL https://github.com/premake/premake-core/releases/download/v5.0.0-beta4/premake-5.0.0-beta4-linux.tar.gz \
+            | tar -xz -C /usr/local/bin
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Cache wasmtime
+        uses: actions/cache@v4
+        with:
+          path: vendor/wasmtime/target
+          key: wasmtime-${{ hashFiles('vendor/wasmtime/Cargo.lock') }}
+
+      - name: Build
+        run: .github/workflows/ci/build_linux.sh
