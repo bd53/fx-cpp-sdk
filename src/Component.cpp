@@ -1,6 +1,6 @@
-#include "../include/CppScriptRuntime.h"
-#include "../include/OMComponent.h"
+#include "../include/Local.h"
 
+#include <cstdio>
 #include <vector>
 
 extern "C" intptr_t CoreFxFindFirstImpl(const guid_t& iid, guid_t* clsid);

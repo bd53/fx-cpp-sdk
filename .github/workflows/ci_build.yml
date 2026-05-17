@@ -1,52 +1,49 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+        push:
+                branches: [main]
+        pull_request:
+                branches: [main]
 
 jobs:
-  linux:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 1
+        linux:
+                runs-on: ubuntu-24.04
+                steps:
+                        - uses: actions/checkout@v4
+                          with:
+                                  submodules: recursive
+                                  fetch-depth: 1
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-14 clang lld python3 musl-tools
+                        - name: Install dependencies
+                          run: |
+                                  sudo apt-get update
+                                  sudo apt-get install -y g++-14 clang lld python3 musl-tools
 
-      - name: Install wasi-sdk
-        run: |
-          curl -fsSL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/wasi-sdk-25.0-x86_64-linux.tar.gz \
-            | sudo tar -xz -C /opt
-          echo "WASI_SYSROOT=/opt/wasi-sdk-25.0-x86_64-linux/share/wasi-sysroot" >> "$GITHUB_ENV"
-          echo "WASI_SDK=/opt/wasi-sdk-25.0-x86_64-linux" >> "$GITHUB_ENV"
-          pip install clang-format
+                        - name: Install wasi-sdk
+                          run: |
+                                  curl -fsSL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/wasi-sdk-25.0-x86_64-linux.tar.gz | sudo tar -xz -C /opt
+                                  echo "WASI_SYSROOT=/opt/wasi-sdk-25.0-x86_64-linux/share/wasi-sysroot" >> "$GITHUB_ENV"
+                                  echo "WASI_SDK=/opt/wasi-sdk-25.0-x86_64-linux" >> "$GITHUB_ENV"
 
-      - name: Install Zig
-        uses: mlugg/setup-zig@v2
+                        - name: Install Zig
+                          uses: mlugg/setup-zig@v2
 
-      - name: Install premake5
-        run: |
-          curl -fsSL https://github.com/premake/premake-core/releases/download/v5.0.0-beta4/premake-5.0.0-beta4-linux.tar.gz \
-            | sudo tar -xz -C /usr/local/bin
-          sudo chmod +x /usr/local/bin/premake5
+                        - name: Install premake5
+                          run: |
+                                  curl -fsSL https://github.com/premake/premake-core/releases/download/v5.0.0-beta4/premake-5.0.0-beta4-linux.tar.gz | sudo tar -xz -C /usr/local/bin
+                                  sudo chmod +x /usr/local/bin/premake5
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-musl
+                        - name: Install Rust
+                          uses: dtolnay/rust-toolchain@stable
+                          with:
+                                  targets: x86_64-unknown-linux-musl
 
-      - name: Cache wasmtime
-        uses: actions/cache@v4
-        with:
-          path: vendor/wasmtime/target
-          key: wasmtime-${{ hashFiles('vendor/wasmtime/Cargo.lock') }}
+                        - name: Cache wasmtime
+                          uses: actions/cache@v4
+                          with:
+                                  path: vendor/wasmtime/target
+                                  key: wasmtime-${{ hashFiles('vendor/wasmtime/Cargo.lock') }}
 
-      - name: Build
-        run: .github/workflows/ci/build_linux.sh
+                        - name: Build
+                          run: .github/workflows/ci/build_linux.sh

@@ -2,53 +2,27 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-
-usage() {
-    echo "Usage: build <source> -o <native|wasm>" >&2
-    exit 1
-}
-
-TARGET=""
 SOURCE=""
-ARGS=()
+EXTRA=()
+
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -o) TARGET="${2:?-o requires a value}"; shift 2 ;;
-        *)  [[ -z "$SOURCE" && "$1" != -* ]] && SOURCE="$1" || ARGS+=("$1"); shift ;;
-    esac
+        case "$1" in
+                -o) shift ;;
+                -*) EXTRA+=("$1"); shift ;;
+                *) SOURCE="$1"; shift ;;
+        esac
 done
 
-[[ -z "$SOURCE" || -z "$TARGET" ]] && usage
-[[ "$TARGET" != "native" && "$TARGET" != "wasm" ]] && {
-    echo "Error: unknown target '$TARGET' (expected 'native' or 'wasm')" >&2
-    exit 1
-}
+if [[ -z "$SOURCE" ]]; then
+        echo "Usage: build <source.cpp> [-o wasm] [flags...]" >&2
+        exit 1
+fi
 
-BASENAME="${SOURCE%.*}"
+OUT="${SOURCE%.*}"
 
-case "$TARGET" in
-    wasm)
-        SYSROOT="${WASI_SYSROOT:-}"
-        if [[ -z "$SYSROOT" ]]; then
-            for d in /usr/share/wasi-sysroot /opt/wasi-sdk/share/wasi-sysroot; do
-                [[ -d "$d" ]] && SYSROOT="$d" && break
-            done
-        fi
-        if [[ -z "$SYSROOT" ]]; then
-            echo "wasi-sysroot not found. Install it or set WASI_SYSROOT."
-            exit 1
-        fi
-        WASM_CXX="${WASI_SDK:+$WASI_SDK/bin/clang++}"
-        WASM_CXX="${WASM_CXX:-clang++}"
-        exec "$WASM_CXX" --target=wasm32-wasip1 -std=c++23 -O2 \
-            --sysroot="$SYSROOT" -fno-exceptions \
-            -I"$PROJECT_DIR" \
-            -Wl,--export-memory \
-            "${ARGS[@]}" "$SOURCE" -o "$BASENAME.wasm"
-        ;;
-    native)
-        exec g++ -std=c++23 -O2 -shared -fPIC -fvisibility=hidden \
-            -I"$PROJECT_DIR" \
-            "${ARGS[@]}" "$SOURCE" -o "$BASENAME.so"
-        ;;
-esac
+SYSROOT="${WASI_SYSROOT:-$(for d in /usr/share/wasi-sysroot /opt/wasi-sdk/share/wasi-sysroot; do [[ -d "$d" ]] && echo "$d" && break; done)}"
+if [[ -z "$SYSROOT" ]]; then
+        echo "Error: wasi-sysroot not found. Install it or set WASI_SYSROOT." >&2
+        exit 1
+fi
+exec "${WASI_SDK:+$WASI_SDK/bin/}clang++" --target=wasm32-wasip1 -std=c++23 -O2 --sysroot="$SYSROOT" -fno-exceptions -I"$PROJECT_DIR" -Wl,--export-memory "${EXTRA[@]}" "$SOURCE" -o "$OUT.wasm"

@@ -1,17 +1,23 @@
 local cwd = os.getcwd()
+local musl_target = "x86_64-unknown-linux-musl"
+local wasmtime_root = ("%s/vendor/wasmtime"):format(cwd)
+local wasmtime_release = ("%s/target/%s/release"):format(wasmtime_root, musl_target)
+
+os.execute("git submodule update --init vendor/wasmtime")
+if not os.isfile(("%s/libwasmtime.a"):format(wasmtime_release)) then
+        os.execute(("rustup target add %s"):format(musl_target))
+        os.execute(("cargo build --release -p wasmtime-c-api --target %s --manifest-path %s/Cargo.toml"):format(musl_target, wasmtime_root))
+end
 
 return function()
-    filter {}
-    if not _OPTIONS["native"] then
-        defines { "FXCPP_WASM_SUPPORT" }
-        includedirs { cwd .. "/vendor/wasmtime/crates/c-api/include" }
-        local genIncludes = os.matchdirs(cwd .. "/vendor/wasmtime/target/x86_64-unknown-linux-musl/release/build/wasmtime-c-api-impl-*/out/include")
-        if #genIncludes > 0 then
-            includedirs { genIncludes[1] }
+        filter {}
+        includedirs { ("%s/crates/c-api/include"):format(wasmtime_root) }
+        local include = os.matchdirs(("%s/build/wasmtime-c-api-impl-*/out/include"):format(wasmtime_release))
+        if #include > 0 then
+                includedirs { include[1] }
         end
         linkoptions {
-            cwd .. "/vendor/wasmtime/target/x86_64-unknown-linux-musl/release/libwasmtime.a",
-            "-lpthread", "-ldl", "-lm",
+                ("%s/libwasmtime.a"):format(wasmtime_release),
+                "-lpthread", "-ldl", "-lm",
         }
-    end
 end
