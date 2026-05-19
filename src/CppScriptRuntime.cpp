@@ -21,6 +21,7 @@ static constexpr uint64_t WASM_FUEL_AMOUNT = 1000000000ULL;
 static constexpr uint32_t WORKER_RESULT_BUF_SIZE = 65536;
 static constexpr int WORKER_SHUTDOWN_ATTEMPTS = 50;
 static constexpr int WORKER_SHUTDOWN_INTERVAL_MS = 100;
+static constexpr size_t MAX_BOOKMARKS_PER_RESOURCE = 1024;
 
 static std::string GetResourcePath(IScriptHost* host)
 {
@@ -187,6 +188,18 @@ static bool WasmCall(wasmtime_store_t* store, const wasmtime_func_t& fn, const w
         return true;
 }
 
+static void SanitizeTraceMsg(std::string& msg)
+{
+        size_t out = 0;
+        for (size_t i = 0; i < msg.size(); ++i)
+        {
+                unsigned char c = static_cast<unsigned char>(msg[i]);
+                if (c == '\n' || c == '\t' || (c >= 0x20 && c != 0x7F))
+                        msg[out++] = msg[i];
+        }
+        msg.resize(out);
+}
+
 static wasm_trap_t* CbTrace(void* env, wasmtime_caller_t* caller, const wasmtime_val_t* args, size_t, wasmtime_val_t*, size_t)
 {
         auto* rt = static_cast<CppScriptRuntime*>(env);
@@ -198,6 +211,7 @@ static wasm_trap_t* CbTrace(void* env, wasmtime_caller_t* caller, const wasmtime
         if (!mem.check(ptr, len))
                 return nullptr;
         std::string msg(reinterpret_cast<const char*>(mem.base + ptr), len);
+        SanitizeTraceMsg(msg);
         if (rt->host())
                 rt->host()->ScriptTrace(const_cast<char*>(msg.c_str()));
         fprintf(stderr, "\033[36m[script:%s]\033[0m %s", rt->resourceName().c_str(), msg.c_str());
@@ -690,7 +704,9 @@ static wasm_trap_t* CbWorkerTrace(void*, wasmtime_caller_t* caller, const wasmti
         uint32_t len = ArgU32(args[1]);
         if (!mem.check(ptr, len))
                 return nullptr;
-        fprintf(stderr, "[worker] %.*s", static_cast<int>(len), reinterpret_cast<const char*>(mem.base + ptr));
+        std::string msg(reinterpret_cast<const char*>(mem.base + ptr), len);
+        SanitizeTraceMsg(msg);
+        fprintf(stderr, "[worker] %s", msg.c_str());
         return nullptr;
 }
 
@@ -1026,6 +1042,8 @@ void CppScriptRuntime::scheduleWasmBookmark(int32_t wasmId, int32_t deadlineMs)
         }
         else
         {
+                if (m_wasmToHostBookmark.size() >= MAX_BOOKMARKS_PER_RESOURCE)
+                        return;
                 hostId = m_nextWasmHostBookmarkId++;
                 m_wasmToHostBookmark[wasmId] = hostId;
                 m_hostToWasmBookmark[hostId] = wasmId;

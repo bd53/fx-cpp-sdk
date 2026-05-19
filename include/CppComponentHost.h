@@ -392,6 +392,9 @@ inline const std::vector<std::string>& cachedFilteredEnv()
 {
         static const std::vector<std::string> s_env = []
         {
+                static constexpr std::string_view kAllowedPrefixes[] = {
+                        "PATH=", "HOME=", "USER=", "LOGNAME=", "LANG=", "LANGUAGE=", "LC_", "TERM=", "TZ=", "TMPDIR=", "TEMP=", "TMP=",
+                };
                 std::vector<std::string> out;
                 std::string envBlob;
                 FILE* envFile = fopen("/proc/self/environ", "rb");
@@ -410,7 +413,16 @@ inline const std::vector<std::string>& cachedFilteredEnv()
                         if (end == std::string::npos)
                                 end = envBlob.size();
                         std::string_view entry(envBlob.data() + pos, end - pos);
-                        if (!entry.empty() && entry.substr(0, 16) != "LD_LIBRARY_PATH=")
+                        bool allowed = false;
+                        for (auto prefix : kAllowedPrefixes)
+                        {
+                                if (entry.size() >= prefix.size() && entry.substr(0, prefix.size()) == prefix)
+                                {
+                                        allowed = true;
+                                        break;
+                                }
+                        }
+                        if (allowed)
                                 out.emplace_back(entry);
                         pos = end + 1;
                 }
@@ -435,6 +447,7 @@ inline ProcessResult spawnProcess(const std::string& command, size_t maxOutputBy
         envp.push_back(nullptr);
         posix_spawn_file_actions_t actions;
         posix_spawn_file_actions_init(&actions);
+        posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
         posix_spawn_file_actions_addclose(&actions, pipefd[0]);
         posix_spawn_file_actions_adddup2(&actions, pipefd[1], STDOUT_FILENO);
         posix_spawn_file_actions_adddup2(&actions, pipefd[1], STDERR_FILENO);
